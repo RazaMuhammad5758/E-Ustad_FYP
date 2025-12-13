@@ -10,6 +10,10 @@ import Professionals from "./pages/Professionals";
 import ProfessionalDetail from "./pages/ProfessionalDetail";
 import Book from "./pages/Book";
 import Requests from "./pages/Requests";
+import MyBookings from "./pages/MyBookings";
+import AddGig from "./pages/AddGig";
+
+import ProProfile from "./pages/ProProfile";
 
 
 export default function App() {
@@ -22,7 +26,12 @@ export default function App() {
           <Route path="/set-password" element={<SetPassword />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/professionals" element={<Professionals />} />
+          <Route path="/my-bookings" element={<MyBookings />} />
 <Route path="/professionals/:id" element={<ProfessionalDetail />} />
+<Route path="/add-gig" element={<AddGig />} />
+
+<Route path="/pro-profile" element={<ProProfile />} />
+
 
 <Route path="/requests" element={<Requests />} />
 <Route path="/book/:id" element={<Book />} />

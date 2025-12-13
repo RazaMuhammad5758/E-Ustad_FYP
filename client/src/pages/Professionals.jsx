@@ -105,6 +105,12 @@ export default function Professionals({ embedded = false }) {
                 key={p._id}
                 className="bg-white border rounded-xl p-4 space-y-2"
               >
+                 {p.profilePic && (
+    <img
+      src={`http://localhost:5000/uploads/${p.profilePic}`}
+      className="w-full h-40 object-cover rounded"
+    />
+  )}
                 <div className="font-bold text-lg">{p.name}</div>
                 <div className="text-sm text-gray-600">
                   {p.professional?.category || "-"}

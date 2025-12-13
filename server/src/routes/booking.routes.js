@@ -19,6 +19,16 @@ router.post("/", requireAuth, async (req, res) => {
   res.json({ booking });
 });
 
+// CLIENT → VIEW MY SENT REQUESTS
+router.get("/client", requireAuth, async (req, res) => {
+  const items = await Booking.find({ clientId: req.user._id })
+    .populate("professionalId", "name phone")
+    .sort({ createdAt: -1 });
+
+  res.json({ bookings: items });
+});
+
+
 // PROFESSIONAL → VIEW REQUESTS
 router.get("/professional", requireAuth, async (req, res) => {
   const items = await Booking.find({ professionalId: req.user._id })
