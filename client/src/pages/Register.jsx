@@ -45,8 +45,8 @@ export default function Register() {
           password: form.password,
         });
 
-        toast.success("Client account created!");
-        nav("/dashboard");
+        toast.success("User Registered");
+        nav("/login");
         return;
       }
 
@@ -153,7 +153,7 @@ export default function Register() {
     </div>
 
     <div className="text-xs text-gray-500">
-      Note: Approval se pehle login nahi hoga.
+      Note: Professional cannot login until Admin do not approve.
     </div>
   </div>
 )}
