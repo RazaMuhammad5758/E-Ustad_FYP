@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -12,9 +13,22 @@ import {
 } from "recharts";
 
 const BASE = "http://localhost:5000";
+const FALLBACK_DP = "/dp.jpg";
+
+function imgUrl(file) {
+  if (!file) return FALLBACK_DP;
+  return `${BASE}/uploads/${file}`;
+}
+
+function onImgError(e) {
+  e.currentTarget.src = FALLBACK_DP;
+}
 
 export default function Admin() {
-  const [admin, setAdmin] = useState({ email: "", password: "" });
+  const nav = useNavigate();
+
+  // auth
+  const [checking, setChecking] = useState(true);
 
   // pending approvals
   const [pending, setPending] = useState([]);
@@ -30,22 +44,62 @@ export default function Admin() {
 
   const [loading, setLoading] = useState(false);
 
-  const headers = useMemo(
-    () => ({
-      "x-admin-email": admin.email,
-      "x-admin-password": admin.password,
-    }),
-    [admin.email, admin.password]
-  );
+  // ✅ active button / section
+  const [activeTab, setActiveTab] = useState("");
+
+  // ✅ section refs for scroll
+  const statsRef = useRef(null);
+  const pendingRef = useRef(null);
+  const clientsRef = useRef(null);
+  const professionalsRef = useRef(null);
+
+  function scrollTo(ref) {
+    // smooth scroll + little delay so DOM update settles
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
+  function tabBtnClass(tabName, base) {
+    const active =
+      activeTab === tabName
+        ? "ring-2 ring-black border-black"
+        : "border-gray-200";
+    return `${base} ${active}`;
+  }
+
+  // ✅ Admin session check (fix refresh logout)
+  useEffect(() => {
+    (async () => {
+      try {
+        await api.get("/admin/me"); // ✅ cookie based auth
+        setChecking(false);
+      } catch {
+        nav("/admin/login");
+      }
+    })();
+  }, [nav]);
+
+  async function adminLogout() {
+    try {
+      await api.post("/admin/logout");
+      toast.success("Logged out");
+      nav("/admin/login");
+    } catch {
+      toast.error("Logout failed");
+    }
+  }
 
   async function loadPending() {
     try {
       setLoading(true);
-      const res = await api.get("/admin/pending-professionals", { headers });
+      setActiveTab("pending");
+      const res = await api.get("/admin/pending-professionals");
       setPending(res.data.pending || []);
       toast.success("Pending loaded");
+      scrollTo(pendingRef);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Admin auth failed");
+      toast.error(err?.response?.data?.message || "Failed to load pending");
     } finally {
       setLoading(false);
     }
@@ -54,9 +108,11 @@ export default function Admin() {
   async function loadClients() {
     try {
       setLoading(true);
-      const res = await api.get("/admin/clients", { headers });
+      setActiveTab("clients");
+      const res = await api.get("/admin/clients");
       setClients(res.data.clients || []);
       toast.success("Clients loaded");
+      scrollTo(clientsRef);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to load clients");
     } finally {
@@ -67,9 +123,11 @@ export default function Admin() {
   async function loadProfessionals() {
     try {
       setLoading(true);
-      const res = await api.get("/admin/professionals", { headers });
+      setActiveTab("professionals");
+      const res = await api.get("/admin/professionals");
       setProfessionals(res.data.professionals || []);
       toast.success("Professionals loaded");
+      scrollTo(professionalsRef);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to load professionals");
     } finally {
@@ -80,13 +138,15 @@ export default function Admin() {
   async function loadStats() {
     try {
       setLoading(true);
+      setActiveTab("stats");
       const [a, b] = await Promise.all([
-        api.get("/admin/stats/categories", { headers }),
-        api.get("/admin/stats/bookings-by-category", { headers }),
+        api.get("/admin/stats/categories"),
+        api.get("/admin/stats/bookings-by-category"),
       ]);
       setCatStats(a.data.categories || []);
       setBookingStats(b.data.bookings || []);
       toast.success("Stats loaded");
+      scrollTo(statsRef);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to load stats");
     } finally {
@@ -96,7 +156,7 @@ export default function Admin() {
 
   async function approve(id) {
     try {
-      await api.post(`/admin/approve/${id}`, {}, { headers });
+      await api.post(`/admin/approve/${id}`);
       toast.success("Approved!");
       setSelected(null);
       await loadPending();
@@ -107,7 +167,7 @@ export default function Admin() {
 
   async function reject(id) {
     try {
-      await api.post(`/admin/reject/${id}`, {}, { headers });
+      await api.post(`/admin/reject/${id}`);
       toast.success("Rejected!");
       setSelected(null);
       await loadPending();
@@ -123,80 +183,80 @@ export default function Admin() {
     if (!ok) return;
 
     try {
-      await api.delete(`/admin/users/${id}`, { headers });
+      await api.delete(`/admin/users/${id}`);
       toast.success("User deleted");
       setSelected(null);
 
       // refresh whatever is loaded
-      await Promise.all([
-        loadClients(),
-        loadProfessionals(),
-        loadPending(),
-        loadStats(),
-      ]);
+      await Promise.all([loadClients(), loadProfessionals(), loadPending(), loadStats()]);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Delete failed");
     }
   }
 
-  useEffect(() => {}, []);
+  if (checking) return <div className="p-6">Checking admin session...</div>;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Admin Panel</h1>
-
-      {/* Admin Credentials */}
-      <div className="bg-white p-4 rounded border grid md:grid-cols-3 gap-3">
-        <input
-          className="border p-2 rounded"
-          placeholder="Admin Email"
-          value={admin.email}
-          onChange={(e) => setAdmin({ ...admin, email: e.target.value })}
-        />
-        <input
-          type="password"
-          className="border p-2 rounded"
-          placeholder="Admin Password"
-          value={admin.password}
-          onChange={(e) => setAdmin({ ...admin, password: e.target.value })}
-        />
-
-        <button
-          onClick={loadPending}
-          className="bg-black text-white rounded p-2 disabled:opacity-60"
-          disabled={loading}
-        >
-          {loading ? "Loading..." : "Load Pending"}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        <button onClick={adminLogout} className="text-sm underline text-red-600">
+          Logout
         </button>
       </div>
 
-      {/* Action Buttons */}
+      {/* ✅ Load buttons (active highlight) */}
       <div className="flex flex-wrap gap-2">
         <button
+          onClick={loadPending}
+          className={tabBtnClass(
+            "pending",
+            "rounded px-4 py-2 text-sm disabled:opacity-60 " +
+              (activeTab === "pending"
+                ? "bg-black text-white border"
+                : "bg-white border")
+          )}
+          disabled={loading}
+        >
+          {loading && activeTab === "pending" ? "Loading..." : "Load Pending"}
+        </button>
+
+        <button
           onClick={loadClients}
-          className="bg-white border rounded px-4 py-2 text-sm"
+          className={tabBtnClass(
+            "clients",
+            "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60"
+          )}
           disabled={loading}
         >
           Load Clients
         </button>
+
         <button
           onClick={loadProfessionals}
-          className="bg-white border rounded px-4 py-2 text-sm"
+          className={tabBtnClass(
+            "professionals",
+            "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60"
+          )}
           disabled={loading}
         >
           Load Professionals
         </button>
+
         <button
           onClick={loadStats}
-          className="bg-white border rounded px-4 py-2 text-sm"
+          className={tabBtnClass(
+            "stats",
+            "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60"
+          )}
           disabled={loading}
         >
           Load Stats
         </button>
       </div>
 
-      {/* Charts */}
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* ✅ STATS (scroll target) */}
+      <div ref={statsRef} className="grid md:grid-cols-2 gap-4 scroll-mt-6">
         <div className="bg-white border rounded-xl p-4">
           <div className="font-bold mb-2">Professionals by Category</div>
           <div className="h-72">
@@ -234,8 +294,8 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Pending Approvals */}
-      <div className="bg-white border rounded-xl p-4 space-y-3">
+      {/* ✅ Pending Approvals (scroll target) */}
+      <div ref={pendingRef} className="bg-white border rounded-xl p-4 space-y-3 scroll-mt-6">
         <div className="font-bold">Pending Professionals</div>
 
         {pending.map((p) => (
@@ -244,6 +304,14 @@ export default function Admin() {
             className="border rounded p-4 flex items-center justify-between gap-3"
           >
             <div>
+               <img
+          src={p.profilePic ? `${BASE}/uploads/${p.profilePic}` : "/dp.png"}
+          onError={(e) => {
+            e.currentTarget.src = "/dp.png"; // fallback
+          }}
+          className="w-12 h-12 rounded-full object-cover border"
+          alt="dp"
+        />
               <div className="font-bold">
                 {p.name} — {p.email}
               </div>
@@ -280,8 +348,8 @@ export default function Admin() {
         )}
       </div>
 
-      {/* Clients Table */}
-      <div className="bg-white border rounded-xl p-4">
+      {/* ✅ Clients Table (scroll target) */}
+      <div ref={clientsRef} className="bg-white border rounded-xl p-4 scroll-mt-6">
         <div className="font-bold mb-3">Clients</div>
 
         <div className="overflow-auto">
@@ -301,14 +369,12 @@ export default function Admin() {
                   <td>{c.phone || "-"}</td>
                   <td>{c.email}</td>
                   <td className="py-2 flex gap-2">
-                    {/* ✅ FIXED: open modal instead of toast */}
                     <button
                       onClick={() => setSelected(c)}
                       className="border rounded px-3 py-1"
                     >
                       View Profile
                     </button>
-
                     <button
                       onClick={() => deleteUser(c._id)}
                       className="bg-red-600 text-white rounded px-3 py-1"
@@ -330,8 +396,8 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Professionals Table */}
-      <div className="bg-white border rounded-xl p-4">
+      {/* ✅ Professionals Table (scroll target) */}
+      <div ref={professionalsRef} className="bg-white border rounded-xl p-4 scroll-mt-6">
         <div className="font-bold mb-3">Professionals</div>
 
         <div className="overflow-auto">
@@ -351,10 +417,12 @@ export default function Admin() {
                   <td className="py-2 flex items-center gap-2">
                     {p.profilePic && (
                       <img
-                        src={`${BASE}/uploads/${p.profilePic}`}
-                        className="w-9 h-9 rounded-full object-cover border"
-                        alt="dp"
-                      />
+  src={imgUrl(p.profilePic)}
+  onError={onImgError}
+  className="w-9 h-9 rounded-full object-cover border"
+  alt="dp"
+/>
+
                     )}
                     <span>{p.name}</span>
                   </td>
@@ -389,12 +457,11 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* ✅ VIEW MORE MODAL */}
+      {/* View modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-xl p-5 space-y-4 shadow-lg">
             <div className="flex items-center justify-between">
-              {/* ✅ Title improved */}
               <h2 className="text-xl font-bold">
                 {selected.role === "client" ? "Client Details" : "User Details"}
               </h2>
@@ -407,36 +474,15 @@ export default function Admin() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-2 text-sm">
-              <div>
-                <b>Name:</b> {selected.name}
-              </div>
-              <div>
-                <b>Email:</b> {selected.email}
-              </div>
-              <div>
-                <b>Phone:</b> {selected.phone || "-"}
-              </div>
-              <div>
-                <b>Role:</b> {selected.role || "-"}
-              </div>
-              <div>
-                <b>Status:</b> {selected.status || "-"}
-              </div>
+              <div><b>Name:</b> {selected.name}</div>
+              <div><b>Email:</b> {selected.email}</div>
+              <div><b>Phone:</b> {selected.phone || "-"}</div>
+              <div><b>Role:</b> {selected.role || "-"}</div>
+              <div><b>Status:</b> {selected.status || "-"}</div>
               {selected.professional?.category && (
-                <div>
-                  <b>Category:</b> {selected.professional.category}
-                </div>
+                <div><b>Category:</b> {selected.professional.category}</div>
               )}
             </div>
-
-            {selected.professional?.shortIntro && (
-              <div className="text-sm">
-                <b>Intro:</b>
-                <div className="border rounded p-2 mt-1">
-                  {selected.professional.shortIntro}
-                </div>
-              </div>
-            )}
 
             <div className="grid md:grid-cols-3 gap-3">
               {selected.profilePic && (
@@ -463,9 +509,7 @@ export default function Admin() {
 
               {selected.professional?.feeScreenshot && (
                 <div>
-                  <div className="text-xs font-semibold mb-1">
-                    Fee Screenshot
-                  </div>
+                  <div className="text-xs font-semibold mb-1">Fee Screenshot</div>
                   <img
                     className="w-full h-40 object-cover rounded border"
                     src={`${BASE}/uploads/${selected.professional.feeScreenshot}`}
@@ -476,23 +520,22 @@ export default function Admin() {
             </div>
 
             <div className="flex gap-2 justify-end pt-2">
-              {selected.role === "professional" &&
-                selected.status === "pending" && (
-                  <>
-                    <button
-                      onClick={() => approve(selected._id)}
-                      className="bg-green-600 text-white px-4 py-2 rounded"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => reject(selected._id)}
-                      className="bg-red-600 text-white px-4 py-2 rounded"
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
+              {selected.role === "professional" && selected.status === "pending" && (
+                <>
+                  <button
+                    onClick={() => approve(selected._id)}
+                    className="bg-green-600 text-white px-4 py-2 rounded"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => reject(selected._id)}
+                    className="bg-red-600 text-white px-4 py-2 rounded"
+                  >
+                    Reject
+                  </button>
+                </>
+              )}
 
               <button
                 onClick={() => deleteUser(selected._id)}

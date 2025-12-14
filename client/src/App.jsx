@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-
+import AdminLogin from "./pages/AdminLogin";
 import SetPassword from "./pages/SetPassword";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
@@ -25,7 +25,9 @@ export default function App() {
           <Route path="/set-password" element={<SetPassword />} />
 
           {/* Admin (manual auth via headers) */}
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<Admin />} />
+          
 
           {/* Public */}
           <Route path="/professionals" element={<Professionals />} />

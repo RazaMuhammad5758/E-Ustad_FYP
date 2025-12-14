@@ -6,19 +6,70 @@ import ProfessionalProfile from "../models/ProfessionalProfile.js";
 import Booking from "../models/Booking.js";
 import Gig from "../models/Gig.js";
 import GigComment from "../models/GigComment.js";
+import jwt from "jsonwebtoken";
 
 
 const router = Router();
 
 function requireAdmin(req, res, next) {
+  // ✅ 1) First preference: cookie-based admin session
+  const token = req.cookies?.admin_token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded?.role === "admin") return next();
+      return res.status(401).json({ message: "Admin unauthorized" });
+    } catch {
+      return res.status(401).json({ message: "Admin session expired" });
+    }
+  }
+
+  // ✅ 2) Backward-compatible: allow headers too (optional)
   const email = req.headers["x-admin-email"];
   const pass = req.headers["x-admin-password"];
 
-  if (email !== process.env.ADMIN_EMAIL || pass !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({ message: "Admin unauthorized" });
+  if (email === process.env.ADMIN_EMAIL && pass === process.env.ADMIN_PASSWORD) {
+    return next();
   }
-  next();
+
+  return res.status(401).json({ message: "Admin unauthorized" });
 }
+
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body || {};
+
+  if (!email || !password) {
+    return res.status(400).json({ message: "Missing fields" });
+  }
+
+  if (email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ message: "Invalid admin credentials" });
+  }
+
+  const adminToken = jwt.sign(
+    { role: "admin", email },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  res.cookie("admin_token", adminToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production", // prod me true
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  return res.json({ ok: true });
+});
+
+router.post("/logout", (req, res) => {
+  res.clearCookie("admin_token");
+  return res.json({ ok: true });
+});
+
+router.get("/me", requireAdmin, (req, res) => {
+  return res.json({ ok: true, role:"admin" });
+});
 
 /* ----------------------- LISTS ----------------------- */
 
