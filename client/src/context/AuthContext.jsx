@@ -48,6 +48,7 @@ export function AuthProvider({ children }) {
   }
 
   async function refreshMe() {
+    // optional: setLoading true if you want spinner each refresh
     return await fetchMe();
   }
 
@@ -75,13 +76,11 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         user,
-        setUser, // ✅ ADDED: allow pages to update global user instantly
+        setUser, // ✅ keep (useful if needed)
         loading,
         login,
         logout,
-
         registerClient,
-
         refreshMe,
         updateMyProfile,
       }}

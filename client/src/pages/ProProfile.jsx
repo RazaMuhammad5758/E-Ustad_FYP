@@ -2,37 +2,15 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
-import { CATEGORIES } from "../constants/categories";
-import { useAuth } from "../context/AuthContext";
 
 const BASE = "http://localhost:5000";
 
 export default function ProProfile() {
-  const { updateMyProfile, refreshMe } = useAuth();
-
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [gigComments, setGigComments] = useState({});
-  const [loadingComments, setLoadingComments] = useState(false);
-
   const [edit, setEdit] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const CITIES = [
-    "",
-    "Karachi",
-    "Lahore",
-    "Islamabad",
-    "Rawalpindi",
-    "Peshawar",
-    "Quetta",
-    "Faisalabad",
-    "Multan",
-    "Gujranwala",
-    "Sialkot",
-    "Hyderabad",
-  ];
 
   const [form, setForm] = useState({
     name: "",
@@ -42,21 +20,7 @@ export default function ProProfile() {
     category: "",
     shortIntro: "",
   });
-
   const [profilePic, setProfilePic] = useState(null);
-
-  function hydrate(resData) {
-    const u = resData?.user || {};
-    const p = resData?.professional || {};
-    setForm({
-      name: u.name || "",
-      phone: u.phone || "",
-      city: u.city || "",
-      address: u.address || "",
-      category: p.category || "",
-      shortIntro: p.shortIntro || "",
-    });
-  }
 
   async function load() {
     try {
@@ -64,23 +28,18 @@ export default function ProProfile() {
 
       const res = await api.get("/professional/me");
       setData(res.data);
-      hydrate(res.data);
 
-      const loadedGigs = res.data?.gigs || [];
+      const u = res.data?.user || {};
+      const p = res.data?.professional || {};
 
-      setLoadingComments(true);
-      try {
-        const map = {};
-        for (const g of loadedGigs) {
-          const cRes = await api.get(`/gig-comments/${g._id}`);
-          map[g._id] = cRes.data.comments || [];
-        }
-        setGigComments(map);
-      } catch (e) {
-        console.log("Failed to load comments for gigs", e?.response?.status);
-      } finally {
-        setLoadingComments(false);
-      }
+      setForm({
+        name: u.name || "",
+        phone: u.phone || "",
+        city: u.city || "",
+        address: u.address || "",
+        category: p.category || "",
+        shortIntro: p.shortIntro || "",
+      });
     } catch (e) {
       toast.error(e?.response?.data?.message || "Failed to load profile");
     } finally {
@@ -89,34 +48,28 @@ export default function ProProfile() {
   }
 
   async function saveProfile() {
-    if (!form.name.trim()) return toast.error("Name required");
-    if (!form.phone.trim()) return toast.error("Phone required");
-    if (!form.city) return toast.error("City required");
-    if (!form.category) return toast.error("Category required");
-
     try {
       setSaving(true);
 
       const fd = new FormData();
-      fd.append("name", form.name.trim());
-      fd.append("phone", form.phone.trim());
+      fd.append("name", form.name);
+      fd.append("phone", form.phone);
       fd.append("city", form.city);
-      fd.append("address", form.address || "");
+      fd.append("address", form.address);
       fd.append("category", form.category);
-      fd.append("shortIntro", form.shortIntro || "");
+      fd.append("shortIntro", form.shortIntro);
       if (profilePic) fd.append("profilePic", profilePic);
 
-      // ✅ updates backend + updates AuthContext user instantly
-      await updateMyProfile(fd);
-      await refreshMe();
+      await api.put("/auth/me", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       toast.success("Profile updated");
       setEdit(false);
       setProfilePic(null);
-
       await load();
     } catch (e) {
-      toast.error(e?.message || e?.response?.data?.message || "Update failed");
+      toast.error(e?.response?.data?.message || "Update failed");
     } finally {
       setSaving(false);
     }
@@ -129,7 +82,7 @@ export default function ProProfile() {
   if (loading) return <div className="p-6">Loading...</div>;
   if (!data) return <div className="p-6">Not found</div>;
 
-  const { user, professional, stats, gigs } = data;
+  const { user, professional, stats } = data;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -137,16 +90,15 @@ export default function ProProfile() {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">My Profile</h1>
           <div className="flex gap-3 text-sm">
-            <Link to="/add-gig" className="underline">
-              Add Gig
-            </Link>
             <Link to="/dashboard" className="underline">
               Dashboard
+            </Link>
+            <Link to="/add-gig" className="underline">
+              Add Gig
             </Link>
           </div>
         </div>
 
-        {/* Profile + Stats */}
         <div className="bg-white border rounded-xl p-5 grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             {!edit ? (
@@ -183,48 +135,30 @@ export default function ProProfile() {
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                   />
-
                   <input
                     className="border p-2 rounded"
                     placeholder="Phone"
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   />
-
-                  {/* ✅ City dropdown */}
-                  <select
+                  <input
                     className="border p-2 rounded"
+                    placeholder="City"
                     value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  >
-                    <option value="">Select City</option>
-                    {CITIES.filter(Boolean).map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-
+                  />
                   <input
                     className="border p-2 rounded"
                     placeholder="Address"
                     value={form.address}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
                   />
-
-                  {/* ✅ Category dropdown (single source) */}
-                  <select
+                  <input
                     className="border p-2 rounded md:col-span-2"
+                    placeholder="Category"
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  >
-                    <option value="">Select Category</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <textarea
@@ -242,9 +176,6 @@ export default function ProProfile() {
                     accept="image/*"
                     onChange={(e) => setProfilePic(e.target.files?.[0] || null)}
                   />
-                  <div className="text-xs text-gray-500">
-                    (Optional) If you don’t select a file, old picture stays.
-                  </div>
                 </div>
 
                 <div className="flex gap-2">
@@ -255,12 +186,10 @@ export default function ProProfile() {
                   >
                     {saving ? "Saving..." : "Save"}
                   </button>
-
                   <button
                     onClick={() => {
                       setEdit(false);
                       setProfilePic(null);
-                      hydrate(data); // ✅ reset fields back to current
                     }}
                     className="border rounded px-4 py-2 text-sm"
                   >
@@ -270,7 +199,6 @@ export default function ProProfile() {
               </>
             )}
 
-            {/* Registration details view */}
             {!edit && (
               <div className="text-sm space-y-1 pt-2">
                 {professional?.cnicPic && (
@@ -305,20 +233,12 @@ export default function ProProfile() {
           </div>
 
           <div className="space-y-2">
-            {user?.profilePic ? (
+            {user?.profilePic && (
               <img
                 className="w-full h-56 object-cover rounded border"
                 src={`${BASE}/uploads/${user.profilePic}`}
                 alt="profile"
-                onError={(e) => {
-                  e.currentTarget.src = "/default-avatar.png";
-                }}
-              />
-            ) : (
-              <img
-                className="w-full h-56 object-cover rounded border"
-                src="/default-avatar.png"
-                alt="profile"
+                onError={(e) => (e.currentTarget.style.display = "none")}
               />
             )}
 
@@ -336,76 +256,11 @@ export default function ProProfile() {
                 <b>Rejected:</b> {stats?.rejected ?? 0}
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* My Gigs */}
-        <div className="bg-white border rounded-xl p-4 space-y-3">
-          <div className="flex justify-between items-center">
-            <div className="font-bold">My Gigs</div>
-            <Link to="/add-gig" className="underline text-sm">
-              Add Gig
-            </Link>
-          </div>
-
-          {gigs?.map((g) => (
-            <div key={g._id} className="border rounded p-3 space-y-2">
-              <div className="font-semibold">{g.title}</div>
-              <div className="text-sm text-gray-600">Rs. {g.price}</div>
-
-              {g.image && (
-                <img
-                  src={`${BASE}/uploads/${g.image}`}
-                  className="w-full h-44 object-cover rounded"
-                  alt="gig"
-                  onError={(e) => (e.currentTarget.style.display = "none")}
-                />
-              )}
-
-              <div className="text-sm">{g.description || "-"}</div>
-
-              {/* Comments */}
-              <div className="pt-2 border-t">
-                <div className="text-sm font-semibold mb-2">Comments</div>
-
-                {(gigComments[g._id] || []).map((c) => (
-                  <div key={c._id} className="flex gap-2 text-sm mb-2">
-                    {c.userId?.profilePic ? (
-                      <img
-                        src={`${BASE}/uploads/${c.userId.profilePic}`}
-                        className="w-8 h-8 rounded-full object-cover"
-                        alt="user"
-                        onError={(e) => (e.currentTarget.style.display = "none")}
-                      />
-                    ) : (
-                      <img
-                        src="/default-avatar.png"
-                        className="w-8 h-8 rounded-full object-cover"
-                        alt="user"
-                      />
-                    )}
-
-                    <div>
-                      <div className="font-semibold">{c.userId?.name || "User"}</div>
-                      <div>{c.text}</div>
-                    </div>
-                  </div>
-                ))}
-
-                {!loadingComments && (gigComments[g._id] || []).length === 0 && (
-                  <div className="text-gray-500 text-sm">No comments yet.</div>
-                )}
-
-                {loadingComments && (
-                  <div className="text-gray-500 text-sm">Loading comments...</div>
-                )}
-              </div>
+            <div className="text-xs text-gray-500">
+              Note: Your gigs are now shown on <b>Dashboard</b>.
             </div>
-          ))}
-
-          {(!gigs || gigs.length === 0) && (
-            <div className="text-gray-500 text-sm">No gigs yet.</div>
-          )}
+          </div>
         </div>
       </div>
     </div>

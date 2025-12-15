@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AdminLogin from "./pages/AdminLogin";
-import SetPassword from "./pages/SetPassword";
-import Admin from "./pages/Admin";
+
+import MainLayout from "./layout/MainLayout";
+
+import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -15,44 +16,81 @@ import MyBookings from "./pages/MyBookings";
 import AddGig from "./pages/AddGig";
 import ProProfile from "./pages/ProProfile";
 import ClientProfile from "./pages/ClientProfile";
-import Home from "./pages/Home";
 
-
+import AdminLogin from "./pages/AdminLogin";
+import Admin from "./pages/Admin";
+import SetPassword from "./pages/SetPassword";
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />} />
-
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/set-password" element={<SetPassword />} />
-
-          {/* Admin (manual auth via headers) */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<Admin />} />
+          {/* ✅ Public (with Header/Footer) */}
           <Route
-  path="/client-profile"
-  element={
-    <ProtectedRoute>
-      <ClientProfile />
-    </ProtectedRoute>
-  }
-/>
+            path="/"
+            element={
+              <MainLayout>
+                <Home />
+              </MainLayout>
+            }
+          />
 
+          <Route
+            path="/login"
+            element={
+              <MainLayout>
+                <Login />
+              </MainLayout>
+            }
+          />
 
-          {/* Public */}
-          <Route path="/professionals" element={<Professionals />} />
-          <Route path="/professionals/:id" element={<ProfessionalDetail />} />
+          <Route
+            path="/register"
+            element={
+              <MainLayout>
+                <Register />
+              </MainLayout>
+            }
+          />
 
-          {/* Protected */}
+          <Route
+            path="/professionals"
+            element={
+              <MainLayout>
+                <Professionals />
+              </MainLayout>
+            }
+          />
+
+          <Route
+            path="/professionals/:id"
+            element={
+              <MainLayout>
+                <ProfessionalDetail />
+              </MainLayout>
+            }
+          />
+
+          {/* ✅ Protected (with Header/Footer) */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <MainLayout>
+                  <Dashboard />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/client-profile"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ClientProfile />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
@@ -61,7 +99,9 @@ export default function App() {
             path="/my-bookings"
             element={
               <ProtectedRoute>
-                <MyBookings />
+                <MainLayout>
+                  <MyBookings />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
@@ -70,7 +110,9 @@ export default function App() {
             path="/requests"
             element={
               <ProtectedRoute>
-                <Requests />
+                <MainLayout>
+                  <Requests />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
@@ -79,7 +121,9 @@ export default function App() {
             path="/add-gig"
             element={
               <ProtectedRoute>
-                <AddGig />
+                <MainLayout>
+                  <AddGig />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
@@ -88,7 +132,9 @@ export default function App() {
             path="/pro-profile"
             element={
               <ProtectedRoute>
-                <ProProfile />
+                <MainLayout>
+                  <ProProfile />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
@@ -97,10 +143,17 @@ export default function App() {
             path="/book/:id"
             element={
               <ProtectedRoute>
-                <Book />
+                <MainLayout>
+                  <Book />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
+
+          {/* ✅ Admin (NO Header/Footer) */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/set-password" element={<SetPassword />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { CATEGORIES } from "../constants/categories";
+import { useAuth } from "../context/AuthContext";
 
 export default function Professionals({ embedded = false }) {
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,15 +31,17 @@ export default function Professionals({ embedded = false }) {
     "Hyderabad",
   ];
 
-  async function load() {
+  async function load(next = {}) {
     try {
       setLoading(true);
-
-      // ✅ optional: if not embedded, scroll to top when searching
       if (!embedded) window.scrollTo({ top: 0, behavior: "smooth" });
 
       const res = await api.get("/professionals", {
-        params: { q: q.trim(), city, category },
+        params: {
+          q: (next.q ?? q).trim(),
+          city: next.city ?? city,
+          category: next.category ?? category,
+        },
       });
 
       setItems(res.data.professionals || []);
@@ -46,8 +52,17 @@ export default function Professionals({ embedded = false }) {
     }
   }
 
+  // ✅ on first mount: read query params like ?category=Electrician
   useEffect(() => {
-    load();
+    const qpQ = searchParams.get("q") || "";
+    const qpCity = searchParams.get("city") || "";
+    const qpCategory = searchParams.get("category") || "";
+
+    setQ(qpQ);
+    setCity(qpCity);
+    setCategory(qpCategory);
+
+    load({ q: qpQ, city: qpCity, category: qpCategory });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -64,9 +79,19 @@ export default function Professionals({ embedded = false }) {
               <h1 className="text-2xl font-bold">Find Professionals</h1>
               <p className="text-sm text-gray-500">Search by name, city, category</p>
             </div>
-            <Link className="text-sm underline" to="/dashboard">
-              Dashboard
-            </Link>
+
+            {/* ✅ Before login: don't show Dashboard button */}
+            {user ? (
+              <Link className="text-sm underline" to="/dashboard">
+                Dashboard
+              </Link>
+            ) 
+            : (
+              <Link className="text-sm underline" to="/">
+                {/* Home */}
+              </Link>
+            )
+            }
           </div>
         )}
 
@@ -109,7 +134,7 @@ export default function Professionals({ embedded = false }) {
           </select>
 
           <button
-            onClick={load}
+            onClick={() => load()}
             disabled={loading}
             className="bg-black text-white rounded p-2 disabled:opacity-60"
           >
@@ -138,9 +163,7 @@ export default function Professionals({ embedded = false }) {
                 />
 
                 <div className="font-bold text-lg">{p.name}</div>
-                <div className="text-sm text-gray-600">
-                  {p.professional?.category || "-"}
-                </div>
+                <div className="text-sm text-gray-600">{p.professional?.category || "-"}</div>
                 <div className="text-sm text-gray-500">{p.city || "—"}</div>
 
                 <Link
