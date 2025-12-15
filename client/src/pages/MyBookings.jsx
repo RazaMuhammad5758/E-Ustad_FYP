@@ -6,10 +6,13 @@ import { Link } from "react-router-dom";
 const BASE = "http://localhost:5000";
 
 function badge(status) {
-  const base = "text-xs px-2 py-1 rounded font-semibold";
-  if (status === "accepted") return `${base} bg-green-100 text-green-700`;
-  if (status === "rejected") return `${base} bg-red-100 text-red-700`;
-  return `${base} bg-yellow-100 text-yellow-700`;
+  const base =
+    "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold";
+  if (status === "accepted")
+    return `${base} bg-emerald-100 text-emerald-700`;
+  if (status === "rejected")
+    return `${base} bg-red-100 text-red-700`;
+  return `${base} bg-amber-100 text-amber-700`;
 }
 
 function toWhatsApp(phone) {
@@ -22,13 +25,17 @@ function toWhatsApp(phone) {
 
 export default function MyBookings() {
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   async function load() {
     try {
+      setLoading(true);
       const res = await api.get("/bookings/client");
       setItems(res.data.bookings || []);
     } catch (e) {
       toast.error("Failed to load bookings");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -37,96 +44,140 @@ export default function MyBookings() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-4xl mx-auto p-6 space-y-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">My Booking Requests</h1>
-          <Link to="/dashboard" className="underline text-sm">
-            Dashboard
-          </Link>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="mx-auto max-w-4xl px-4 py-8 space-y-5">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight">
+              My Booking Requests
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Track the status of your service requests.
+            </p>
+          </div>
+
+          
         </div>
 
-        {items.map((b) => {
-          const phone = b.status === "accepted" ? b.professionalPhone : null;
-          const wa = toWhatsApp(phone);
+        {/* Content */}
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-600 shadow-sm">
+            Loading bookings…
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {items.map((b) => {
+              const phone =
+                b.status === "accepted" ? b.professionalPhone : null;
+              const wa = toWhatsApp(phone);
 
-          return (
-            <div key={b._id} className="bg-white border rounded-xl p-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <div className="font-bold">
-                  {b.professionalId?.name || "Professional"}
-                </div>
-                <span className={badge(b.status)}>
-                  {String(b.status || "").toUpperCase()}
-                </span>
-              </div>
-
-              <div className="text-sm text-gray-600">
-                Phone:{" "}
-                {b.status === "accepted" ? (
-                  <span className="font-semibold">{phone || "-"}</span>
-                ) : (
-                  <span className="italic">Hidden until accepted</span>
-                )}
-              </div>
-
-              {/* ✅ Call / WhatsApp only on accepted */}
-              {b.status === "accepted" && phone && (
-                <div className="flex gap-2 pt-1">
-                  <a
-                    href={`tel:${phone}`}
-                    className="px-3 py-2 rounded bg-black text-white text-sm"
-                  >
-                    Call
-                  </a>
-                  <a
-                    href={`https://wa.me/${wa}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-2 rounded border text-sm"
-                  >
-                    WhatsApp
-                  </a>
-                </div>
-              )}
-
-              <div className="text-sm">
-                <b>Your Message:</b> {b.message || "-"}
-              </div>
-
-              {/* ✅ NEW: show booking picture (if uploaded) */}
-              {b.attachment && (
-                <div className="pt-2">
-                  <div className="text-sm font-semibold mb-1">
-                    Your Uploaded Picture
+              return (
+                <div
+                  key={b._id}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                >
+                  {/* Top row */}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-lg font-extrabold tracking-tight">
+                      {b.professionalId?.name || "Professional"}
+                    </div>
+                    <span className={badge(b.status)}>
+                      {String(b.status || "").toUpperCase()}
+                    </span>
                   </div>
-                  <a
-                    href={`${BASE}/uploads/${b.attachment}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline text-sm"
-                  >
-                    View Full Image
-                  </a>
 
-                  <img
-                    src={`${BASE}/uploads/${b.attachment}`}
-                    alt="attachment"
-                    className="mt-2 w-full max-h-64 object-cover rounded border"
-                    onError={(e) => (e.currentTarget.style.display = "none")}
-                  />
+                  {/* Phone */}
+                  <div className="mt-2 text-sm text-slate-600">
+                    Phone:{" "}
+                    {b.status === "accepted" ? (
+                      <span className="font-semibold text-slate-900">
+                        {phone || "-"}
+                      </span>
+                    ) : (
+                      <span className="italic text-slate-500">
+                        Hidden until accepted
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  {b.status === "accepted" && phone && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <a
+                        href={`tel:${phone}`}
+                        className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                      >
+                        📞 Call
+                      </a>
+
+                      <a
+                        href={`https://wa.me/${wa}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                      >
+                        💬 WhatsApp
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Message */}
+                  <div className="mt-4 text-sm">
+                    <span className="font-semibold text-slate-900">
+                      Your Message:
+                    </span>{" "}
+                    <span className="text-slate-700">{b.message || "-"}</span>
+                  </div>
+
+                  {/* Attachment */}
+                  {b.attachment && (
+                    <div className="mt-4">
+                      <div className="text-sm font-semibold text-slate-900 mb-1">
+                        Uploaded Picture
+                      </div>
+
+                      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                        <img
+                          src={`${BASE}/uploads/${b.attachment}`}
+                          alt="attachment"
+                          className="w-full max-h-64 object-cover"
+                          onError={(e) =>
+                            (e.currentTarget.style.display = "none")
+                          }
+                        />
+                      </div>
+
+                      <a
+                        href={`${BASE}/uploads/${b.attachment}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-block text-xs font-semibold text-indigo-700 hover:underline"
+                      >
+                        View full image →
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div className="mt-4 text-xs text-slate-500">
+                    Sent: {new Date(b.createdAt).toLocaleString()}
+                  </div>
                 </div>
-              )}
+              );
+            })}
 
-              <div className="text-xs text-gray-500">
-                Sent: {new Date(b.createdAt).toLocaleString()}
+            {items.length === 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-600 shadow-sm">
+                <div className="text-base font-semibold text-slate-900">
+                  No booking requests yet
+                </div>
+                <div className="mt-1 text-sm text-slate-600">
+                  Your requests will appear here once you book a professional.
+                </div>
               </div>
-            </div>
-          );
-        })}
-
-        {items.length === 0 && (
-          <div className="text-gray-500">No booking requests yet.</div>
+            )}
+          </div>
         )}
       </div>
     </div>

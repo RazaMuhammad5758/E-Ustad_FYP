@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
 
 const BASE = "http://localhost:5000";
+const FALLBACK_DP = "/dp.jpg";
 
 const COUNTRY_CODES = [
   { code: "+92", label: "PK", flag: "🇵🇰", max: 10 },
@@ -17,13 +18,10 @@ const COUNTRY_CODES = [
 function splitPhone(phone) {
   const raw = String(phone || "").trim();
   if (!raw.startsWith("+")) {
-    return { cc: "+92", national: String(raw).replace(/[^\d]/g, "").replace(/^0/, "") };
+    return { cc: "+92", national: raw.replace(/[^\d]/g, "").replace(/^0/, "") };
   }
-  const match = raw.match(/^\+(\d{1,3})(\d+)$/);
-  if (!match) return { cc: "+92", national: String(raw).replace(/[^\d]/g, "") };
-  const cc = "+" + match[1];
-  const national = match[2];
-  return { cc, national };
+  const m = raw.match(/^\+(\d{1,3})(\d+)$/);
+  return m ? { cc: `+${m[1]}`, national: m[2] } : { cc: "+92", national: raw };
 }
 
 export default function ProProfile() {
@@ -32,6 +30,7 @@ export default function ProProfile() {
 
   const [edit, setEdit] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [profilePic, setProfilePic] = useState(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -43,70 +42,58 @@ export default function ProProfile() {
     shortIntro: "",
   });
 
-  const [profilePic, setProfilePic] = useState(null);
+  const phoneRule = useMemo(
+    () => COUNTRY_CODES.find((c) => c.code === form.phoneCountryCode) || COUNTRY_CODES[0],
+    [form.phoneCountryCode]
+  );
 
-  const phoneRule = useMemo(() => {
-    return COUNTRY_CODES.find((c) => c.code === form.phoneCountryCode) || COUNTRY_CODES[0];
-  }, [form.phoneCountryCode]);
-
-  function setPhoneDigits(value) {
-    const digits = String(value || "").replace(/[^\d]/g, "");
-    setForm((p) => ({ ...p, phone: digits.slice(0, phoneRule.max) }));
+  function setPhoneDigits(v) {
+    const d = String(v || "").replace(/[^\d]/g, "");
+    setForm((p) => ({ ...p, phone: d.slice(0, phoneRule.max) }));
   }
 
   async function load() {
     try {
       setLoading(true);
-
       const res = await api.get("/professional/me");
       setData(res.data);
 
       const u = res.data?.user || {};
       const p = res.data?.professional || {};
-
       const { cc, national } = splitPhone(u.phone);
 
       setForm({
         name: u.name || "",
-        phoneCountryCode: u.phoneCountryCode || cc || "+92",
+        phoneCountryCode: u.phoneCountryCode || cc,
         phone: u.phoneNational || national || "",
         city: u.city || "",
         address: u.address || "",
         category: p.category || "",
         shortIntro: p.shortIntro || "",
       });
-    } catch (e) {
-      toast.error(e?.response?.data?.message || "Failed to load profile");
+    } catch {
+      toast.error("Failed to load profile");
     } finally {
       setLoading(false);
     }
   }
 
   async function saveProfile() {
-    if (!form.city?.trim()) return toast.error("City required"); // ✅ ADDED
+    if (!form.city) return toast.error("City required");
+
     try {
       setSaving(true);
-
       const fd = new FormData();
-      fd.append("name", form.name);
-      fd.append("phoneCountryCode", form.phoneCountryCode);
-      fd.append("phone", form.phone);
-      fd.append("city", form.city);
-      fd.append("address", form.address);
-      fd.append("category", form.category);
-      fd.append("shortIntro", form.shortIntro);
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
       if (profilePic) fd.append("profilePic", profilePic);
 
-      await api.put("/auth/me", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
+      await api.put("/auth/me", fd);
       toast.success("Profile updated");
       setEdit(false);
       setProfilePic(null);
       await load();
-    } catch (e) {
-      toast.error(e?.response?.data?.message || "Update failed");
+    } catch {
+      toast.error("Update failed");
     } finally {
       setSaving(false);
     }
@@ -122,186 +109,113 @@ export default function ProProfile() {
   const { user, professional, stats } = data;
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-6xl mx-auto p-6 space-y-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">My Profile</h1>
-          <div className="flex gap-3 text-sm">
-            <Link to="/dashboard" className="underline">
-              Dashboard
-            </Link>
-            <Link to="/add-gig" className="underline">
-              Add Gig
-            </Link>
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-sky-50 to-slate-100">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold text-slate-900">Professional Profile</h1>
+          <div className="flex gap-4 text-sm font-semibold text-indigo-700">
+            <Link to="/dashboard" className="hover:underline">Dashboard</Link>
+            <Link to="/add-gig" className="hover:underline">Add Gig</Link>
           </div>
         </div>
 
-        <div className="bg-white border rounded-xl p-5 grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
+        {/* Card */}
+        <div className="grid md:grid-cols-3 gap-6 rounded-3xl bg-white/80 border border-white/60 p-6 backdrop-blur">
+
+          {/* Left */}
+          <div className="md:col-span-2 space-y-4">
             {!edit ? (
               <>
-                <div className="font-bold text-lg">{user?.name}</div>
-                <div className="text-sm text-gray-600">{professional?.category || "-"}</div>
-                <div className="text-sm">Email: {user?.email}</div>
-                <div className="text-sm">Phone: {user?.phone}</div>
-                <div className="text-sm">City: {user?.city || "-"}</div>
-                <div className="text-sm">Address: {user?.address || "-"}</div>
+                <div>
+                  <h2 className="text-xl font-bold">{user.name}</h2>
+                  <p className="text-sm text-slate-600">{professional?.category}</p>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                  <div><b>Email:</b> {user.email}</div>
+                  <div><b>Phone:</b> {user.phone}</div>
+                  <div><b>City:</b> {user.city || "-"}</div>
+                  <div><b>Address:</b> {user.address || "-"}</div>
+                </div>
 
                 <div className="text-sm">
                   <b>Intro:</b>
-                  <div className="border rounded p-2 mt-1">
+                  <div className="mt-1 rounded-xl border p-3 bg-slate-50">
                     {professional?.shortIntro || "-"}
                   </div>
                 </div>
 
-                <button onClick={() => setEdit(true)} className="mt-2 border rounded px-3 py-2 text-sm">
+                <button
+                  onClick={() => setEdit(true)}
+                  className="inline-flex rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-slate-50"
+                >
                   Edit Profile
                 </button>
               </>
             ) : (
               <>
-                <div className="font-bold text-lg">Edit Profile</div>
+                <h2 className="text-lg font-bold">Edit Profile</h2>
 
-                <div className="grid md:grid-cols-2 gap-2">
-                  <input
-                    className="border p-2 rounded md:col-span-2"
-                    placeholder="Name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  />
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <input className="border rounded-xl p-2" placeholder="Name"
+                    value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
 
-                  {/* ✅ Phone with code INSIDE */}
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-gray-500">Phone</label>
-                    <div className="mt-1 flex items-center border rounded overflow-hidden bg-white">
-                      <select
-                        className="h-10 px-2 text-sm bg-transparent border-r outline-none"
-                        value={form.phoneCountryCode}
-                        onChange={(e) => setForm({ ...form, phoneCountryCode: e.target.value, phone: "" })}
-                      >
-                        {COUNTRY_CODES.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.flag} {c.code}
-                          </option>
-                        ))}
-                      </select>
+                  <input className="border rounded-xl p-2" placeholder="City"
+                    value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
 
-                      <input
-                        className="flex-1 h-10 px-3 outline-none"
-                        placeholder="Phone"
-                        inputMode="numeric"
-                        value={form.phone}
-                        onChange={(e) => setPhoneDigits(e.target.value)}
-                      />
+                  <input className="border rounded-xl p-2 sm:col-span-2" placeholder="Address"
+                    value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
 
-                      <div className="px-3 text-xs text-gray-500 whitespace-nowrap">
-                        {form.phone.length}/{phoneRule.max}
-                      </div>
-                    </div>
-                  </div>
-
-                  <input
-                    className="border p-2 rounded"
-                    placeholder="City"
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  />
-                  <input
-                    className="border p-2 rounded"
-                    placeholder="Address"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  />
-
-                  <input
-                    className="border p-2 rounded md:col-span-2"
-                    placeholder="Category"
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  />
+                  <input className="border rounded-xl p-2 sm:col-span-2" placeholder="Category"
+                    value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
                 </div>
 
                 <textarea
-                  className="border p-2 rounded w-full"
                   rows={3}
+                  className="border rounded-xl p-2 w-full"
                   placeholder="Short intro"
                   value={form.shortIntro}
                   onChange={(e) => setForm({ ...form, shortIntro: e.target.value })}
                 />
 
-                <div className="text-sm space-y-1">
-                  <div className="font-semibold">Profile Picture</div>
-                  <input type="file" accept="image/*" onChange={(e) => setProfilePic(e.target.files?.[0] || null)} />
-                </div>
+                <input type="file" accept="image/*" onChange={(e) => setProfilePic(e.target.files?.[0] || null)} />
 
                 <div className="flex gap-2">
                   <button
                     onClick={saveProfile}
                     disabled={saving}
-                    className="bg-black text-white rounded px-4 py-2 text-sm disabled:opacity-60"
+                    className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm font-semibold disabled:opacity-60"
                   >
                     {saving ? "Saving..." : "Save"}
                   </button>
-                  <button
-                    onClick={() => {
-                      setEdit(false);
-                      setProfilePic(null);
-                      load();
-                    }}
-                    className="border rounded px-4 py-2 text-sm"
-                  >
+                  <button onClick={() => load()} className="rounded-xl border px-4 py-2 text-sm">
                     Cancel
                   </button>
                 </div>
               </>
             )}
-
-            {!edit && (
-              <div className="text-sm space-y-1 pt-2">
-                {professional?.cnicPic && (
-                  <div className="text-xs text-gray-600">
-                    CNIC Pic:{" "}
-                    <a className="underline" href={`${BASE}/uploads/${professional.cnicPic}`} target="_blank" rel="noreferrer">
-                      View
-                    </a>
-                  </div>
-                )}
-
-                {professional?.feeScreenshot && (
-                  <div className="text-xs text-gray-600">
-                    Fee Screenshot:{" "}
-                    <a className="underline" href={`${BASE}/uploads/${professional.feeScreenshot}`} target="_blank" rel="noreferrer">
-                      View
-                    </a>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          <div className="space-y-2">
-            {user?.profilePic ? (
-              <img
-                className="w-full h-56 object-cover rounded border"
-                src={`${BASE}/uploads/${user.profilePic}`}
-                alt="profile"
-                onError={(e) => {
-                  e.currentTarget.src = "/dp.jpg";
-                }}
-              />
-            ) : (
-              <img className="w-full h-56 object-cover rounded border" src="/dp.jpg" alt="default" />
-            )}
-
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="border rounded p-3"><b>Total:</b> {stats?.total ?? 0}</div>
-              <div className="border rounded p-3"><b>Pending:</b> {stats?.pending ?? 0}</div>
-              <div className="border rounded p-3"><b>Accepted:</b> {stats?.accepted ?? 0}</div>
-              <div className="border rounded p-3"><b>Rejected:</b> {stats?.rejected ?? 0}</div>
+          {/* Right */}
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <div className="h-28 w-28 rounded-full overflow-hidden border">
+                <img
+                  src={user.profilePic ? `${BASE}/uploads/${user.profilePic}` : FALLBACK_DP}
+                  className="h-full w-full object-cover"
+                  onError={(e) => (e.currentTarget.src = FALLBACK_DP)}
+                  alt="profile"
+                />
+              </div>
             </div>
 
-            <div className="text-xs text-gray-500">
-              Note: Your gigs are now shown on <b>Dashboard</b>.
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl border p-3"><b>Total</b><div>{stats?.total ?? 0}</div></div>
+              <div className="rounded-xl border p-3"><b>Pending</b><div>{stats?.pending ?? 0}</div></div>
+              <div className="rounded-xl border p-3"><b>Accepted</b><div>{stats?.accepted ?? 0}</div></div>
+              <div className="rounded-xl border p-3"><b>Rejected</b><div>{stats?.rejected ?? 0}</div></div>
             </div>
           </div>
         </div>

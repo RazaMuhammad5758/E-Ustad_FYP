@@ -3,7 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import MainLayout from "./layout/MainLayout";
-
+import EditGig from "./pages/EditGig";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -127,6 +127,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/edit-gig/:id" element={<EditGig />} />
 
           <Route
             path="/pro-profile"
