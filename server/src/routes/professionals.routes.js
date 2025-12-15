@@ -4,6 +4,13 @@ import ProfessionalProfile from "../models/ProfessionalProfile.js";
 
 const router = Router();
 
+// ✅ helper: remove sensitive fields from professional user
+function sanitizeProfessionalUser(u) {
+  if (!u) return u;
+  const { phone, passwordHash, ...rest } = u; // ✅ remove phone + passwordHash
+  return rest;
+}
+
 router.get("/", async (req, res) => {
   const { city = "", category = "", q = "" } = req.query;
 
@@ -11,6 +18,7 @@ router.get("/", async (req, res) => {
   if (city) filter.city = new RegExp(city, "i");
   if (q) filter.name = new RegExp(q, "i");
 
+  // ✅ still keep passwordHash removed
   const pros = await User.find(filter).select("-passwordHash").lean();
   const ids = pros.map((p) => p._id);
 
@@ -18,7 +26,10 @@ router.get("/", async (req, res) => {
   const map = new Map(profiles.map((p) => [p.userId.toString(), p]));
 
   const merged = pros
-    .map((p) => ({ ...p, professional: map.get(p._id.toString()) || null }))
+    .map((p) => ({
+      ...sanitizeProfessionalUser(p), // ✅ phone removed in list
+      professional: map.get(p._id.toString()) || null,
+    }))
     .filter((p) => {
       if (!category) return true;
       return (p.professional?.category || "").toLowerCase() === String(category).toLowerCase();
@@ -39,7 +50,9 @@ router.get("/:id", async (req, res) => {
   if (!user) return res.status(404).json({ message: "Professional not found" });
 
   const professional = await ProfessionalProfile.findOne({ userId: user._id }).lean();
-  res.json({ user, professional });
+
+  // ✅ phone removed in detail response too
+  res.json({ user: sanitizeProfessionalUser(user), professional });
 });
 
 export default router;

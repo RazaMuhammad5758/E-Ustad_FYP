@@ -15,54 +15,52 @@ export default function ProfessionalDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  (async () => {
-    setLoading(true);
-    try {
-      const [pRes, gRes] = await Promise.all([
-        api.get(`/professionals/${id}`),
-        api.get(`/gigs/by/${id}`),
-      ]);
-
-      setData(pRes.data);
-      const loadedGigs = gRes.data.gigs || [];
-      setGigs(loadedGigs);
-
-      // ✅ comments ko alag try-catch (taake profile ka toast na aaye)
+    (async () => {
+      setLoading(true);
       try {
-        for (const g of loadedGigs) {
-          const cRes = await api.get(`/gig-comments/${g._id}`);
-          setComments((prev) => ({ ...prev, [g._id]: cRes.data.comments || [] }));
+        const [pRes, gRes] = await Promise.all([
+          api.get(`/professionals/${id}`),
+          api.get(`/gigs/by/${id}`),
+        ]);
+
+        setData(pRes.data);
+
+        const loadedGigs = gRes.data.gigs || [];
+        setGigs(loadedGigs);
+
+        // ✅ load comments (optional)
+        try {
+          for (const g of loadedGigs) {
+            const cRes = await api.get(`/gig-comments/${g._id}`);
+            setComments((prev) => ({ ...prev, [g._id]: cRes.data.comments || [] }));
+          }
+        } catch (e) {
+          console.log("comments load failed", e?.response?.status, e?.response?.data);
         }
       } catch (e) {
-        // comments fail hon to bas ignore/optional toast
-        console.log("comments load failed", e?.response?.status, e?.response?.data);
+        toast.error(e?.response?.data?.message || "Failed to load profile");
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      toast.error(e?.response?.data?.message || "Failed to load profile");
-    } finally {
-      setLoading(false);
-    }
-  })();
-}, [id]);
-
+    })();
+  }, [id]);
 
   async function submitComment(gigId) {
-  const text = texts[gigId];
-  if (!text?.trim()) return toast.error("Write something");
+    const text = texts[gigId];
+    if (!text?.trim()) return toast.error("Write something");
 
-  try {
-    await api.post("/gig-comments", { gigId, text }); // ✅ cookie will go now
-    toast.success("Comment added");
+    try {
+      await api.post("/gig-comments", { gigId, text });
+      toast.success("Comment added");
 
-    setTexts((p) => ({ ...p, [gigId]: "" }));
+      setTexts((p) => ({ ...p, [gigId]: "" }));
 
-    const cRes = await api.get(`/gig-comments/${gigId}`);
-    setComments((prev) => ({ ...prev, [gigId]: cRes.data.comments || [] }));
-  } catch (e) {
-    toast.error(e?.response?.data?.message || "Comment failed");
+      const cRes = await api.get(`/gig-comments/${gigId}`);
+      setComments((prev) => ({ ...prev, [gigId]: cRes.data.comments || [] }));
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Comment failed");
+    }
   }
-}
-
 
   if (loading) return <div className="p-6">Loading...</div>;
   if (!data) return <div className="p-6">Not found</div>;
@@ -73,15 +71,20 @@ export default function ProfessionalDetail() {
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-4xl mx-auto p-6 space-y-4">
         <div className="flex justify-between">
-          <Link to="/professionals" className="underline">← Back</Link>
-          <Link to="/dashboard" className="underline">Dashboard</Link>
+          <Link to="/dashboard" className="underline">
+            Dashboard
+          </Link>
         </div>
 
         <div className="bg-white border rounded-xl p-5 space-y-4">
           <div>
-            <h1 className="text-2xl font-bold">{user.name}</h1>
+            <h1 className="text-2xl font-bold">{user?.name}</h1>
             <div className="text-gray-600">{professional?.category || "-"}</div>
-            <div className="text-sm text-gray-500">Phone: {user.phone}</div>
+
+            {/* ✅ privacy */}
+            <div className="text-sm text-gray-500">
+              Phone: <span className="italic">Hidden until booking is accepted</span>
+            </div>
           </div>
 
           <div>
@@ -94,6 +97,7 @@ export default function ProfessionalDetail() {
           {/* GIGS */}
           <div>
             <div className="font-bold">Gigs / Services</div>
+
             <div className="grid md:grid-cols-2 gap-3 mt-2">
               {gigs.map((g) => (
                 <div key={g._id} className="border rounded p-3 space-y-2">
@@ -117,6 +121,7 @@ export default function ProfessionalDetail() {
                           <img
                             src={`${BASE}/uploads/${c.userId.profilePic}`}
                             className="w-8 h-8 rounded-full object-cover"
+                            alt="dp"
                           />
                         )}
                         <div>

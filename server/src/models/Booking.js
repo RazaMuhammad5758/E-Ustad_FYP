@@ -7,6 +7,9 @@ const bookingSchema = new mongoose.Schema(
 
     message: { type: String, default: "" },
 
+    // ✅ NEW: booking attachment image filename
+    attachment: { type: String, default: "" },
+
     status: {
       type: String,
       enum: ["pending", "accepted", "rejected"],

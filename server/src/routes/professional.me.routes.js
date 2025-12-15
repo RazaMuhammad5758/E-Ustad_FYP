@@ -5,31 +5,47 @@ import ProfessionalProfile from "../models/ProfessionalProfile.js";
 import Booking from "../models/Booking.js";
 import Gig from "../models/Gig.js";
 
-
 const router = Router();
 
 router.get("/me", requireAuth, async (req, res) => {
-  if (req.user.role !== "professional") return res.status(403).json({ message: "Professional only" });
+  try {
+    if (req.user.role !== "professional") {
+      return res.status(403).json({ message: "Professional only" });
+    }
 
-  const user = await User.findById(req.user._id).select("-passwordHash").lean();
-  const professional = await ProfessionalProfile.findOne({ userId: req.user._id }).lean();
+    const userId = req.user._id;
 
-  const [total, pending, accepted, rejected] = await Promise.all([
-    Booking.countDocuments({ professionalId: req.user._id }),
-    Booking.countDocuments({ professionalId: req.user._id, status: "pending" }),
-    Booking.countDocuments({ professionalId: req.user._id, status: "accepted" }),
-    Booking.countDocuments({ professionalId: req.user._id, status: "rejected" }),
-  ]);
+    const user = await User.findById(userId).select("-passwordHash").lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  const gigs = await Gig.find({ professionalId: req.user._id }).sort({ createdAt: -1 });
+    const professional =
+      (await ProfessionalProfile.findOne({ userId }).lean()) || {
+        userId,
+        category: "",
+        shortIntro: "",
+        cnicPic: "",
+        feeScreenshot: "",
+      };
 
+    const [total, pending, accepted, rejected, gigs] = await Promise.all([
+      Booking.countDocuments({ professionalId: userId }),
+      Booking.countDocuments({ professionalId: userId, status: "pending" }),
+      Booking.countDocuments({ professionalId: userId, status: "accepted" }),
+      Booking.countDocuments({ professionalId: userId, status: "rejected" }),
+      Gig.find({ professionalId: userId }).sort({ createdAt: -1 }).lean(),
+    ]);
 
-  res.json({
-    user,
-    professional,
-    stats: { total, pending, accepted, rejected },
-    gigs,
-  });
+    return res.json({
+      user,
+      professional,                 // ✅ frontend should read professional.shortIntro
+      shortIntro: professional.shortIntro || "", // ✅ extra safety
+      stats: { total, pending, accepted, rejected },
+      gigs,
+    });
+  } catch (e) {
+    console.log("PRO ME ERROR:", e);
+    return res.status(500).json({ message: "Failed to load profile" });
+  }
 });
 
 export default router;

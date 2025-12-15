@@ -14,12 +14,18 @@ import Requests from "./pages/Requests";
 import MyBookings from "./pages/MyBookings";
 import AddGig from "./pages/AddGig";
 import ProProfile from "./pages/ProProfile";
+import ClientProfile from "./pages/ClientProfile";
+import Home from "./pages/Home";
+
+
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Home />} />
+
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/set-password" element={<SetPassword />} />
@@ -27,7 +33,15 @@ export default function App() {
           {/* Admin (manual auth via headers) */}
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<Admin />} />
-          
+          <Route
+  path="/client-profile"
+  element={
+    <ProtectedRoute>
+      <ClientProfile />
+    </ProtectedRoute>
+  }
+/>
+
 
           {/* Public */}
           <Route path="/professionals" element={<Professionals />} />

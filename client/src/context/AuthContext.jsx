@@ -10,40 +10,61 @@ export function AuthProvider({ children }) {
   async function fetchMe() {
     try {
       const res = await api.get("/auth/me");
-      setUser(res.data.user);
+      setUser(res.data.user || null);
+      return res.data.user || null;
     } catch {
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
   }
 
   async function login(data) {
-  try {
-    const res = await api.post("/auth/login", data);
-    setUser(res.data.user);
-    return res.data.user;
-  } catch (err) {
-    const msg = err?.response?.data?.message || "Login failed";
-    throw new Error(msg);
+    try {
+      const res = await api.post("/auth/login", data);
+      setUser(res.data.user);
+      return res.data.user;
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Login failed";
+      throw new Error(msg);
+    }
   }
-}
 
-async function register(data) {
-  try {
-    const res = await api.post("/auth/register", data);
-    setUser(res.data.user);
-    return res.data.user;
-  } catch (err) {
-    const msg = err?.response?.data?.message || "Register failed";
-    throw new Error(msg);
+  async function registerClient(payload) {
+    try {
+      const res = await api.post("/auth/register/client", payload);
+      setUser(res.data.user);
+      return res.data.user;
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Register failed";
+      throw new Error(msg);
+    }
   }
-}
-
 
   async function logout() {
     await api.post("/auth/logout");
     setUser(null);
+  }
+
+  async function refreshMe() {
+    return await fetchMe();
+  }
+
+  async function updateMyProfile(payload) {
+    try {
+      const isFormData = payload instanceof FormData;
+
+      const res = await api.put("/auth/me", payload, {
+        headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+      });
+
+      setUser(res.data.user);
+      return res.data.user;
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Update profile failed";
+      throw new Error(msg);
+    }
   }
 
   useEffect(() => {
@@ -51,7 +72,20 @@ async function register(data) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser, // ✅ ADDED: allow pages to update global user instantly
+        loading,
+        login,
+        logout,
+
+        registerClient,
+
+        refreshMe,
+        updateMyProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

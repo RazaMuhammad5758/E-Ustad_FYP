@@ -479,10 +479,20 @@ export default function Admin() {
               <div><b>Phone:</b> {selected.phone || "-"}</div>
               <div><b>Role:</b> {selected.role || "-"}</div>
               <div><b>Status:</b> {selected.status || "-"}</div>
+              
               {selected.professional?.category && (
                 <div><b>Category:</b> {selected.professional.category}</div>
               )}
             </div>
+            {/* ✅ Intro (Professional) */}
+{selected?.professional && (
+  <div className="text-sm">
+    <b>Intro:</b>
+    <div className="border rounded p-2 mt-1">
+      {selected.professional.shortIntro?.trim() || "-"}
+    </div>
+  </div>
+)}
 
             <div className="grid md:grid-cols-3 gap-3">
               {selected.profilePic && (

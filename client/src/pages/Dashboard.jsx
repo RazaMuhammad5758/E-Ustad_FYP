@@ -24,12 +24,19 @@ export default function Dashboard() {
       <div className="p-6">
         {user?.role === "client" && (
           <>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h2 className="text-xl font-bold">Available Professionals</h2>
 
-              <Link to="/my-bookings" className="underline text-sm">
-                My Booking Requests
-              </Link>
+              <div className="flex gap-4 text-sm">
+                {/* ✅ Client Profile */}
+                <Link to="/client-profile" className="underline font-semibold">
+                  My Profile
+                </Link>
+
+                <Link to="/my-bookings" className="underline">
+                  My Booking Requests
+                </Link>
+              </div>
             </div>
 
             <Professionals embedded />
@@ -38,7 +45,6 @@ export default function Dashboard() {
 
         {user?.role === "professional" && (
           <>
-            {/* ✅ Use Link instead of <a href> */}
             <div className="bg-white border rounded-xl p-4 flex flex-wrap gap-4 text-sm">
               <Link to="/requests" className="underline">
                 Requests
