@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../api/axios";
@@ -13,12 +13,23 @@ export default function Register() {
     "Faisalabad","Multan","Gujranwala","Sialkot","Hyderabad"
   ];
 
+  const COUNTRY_CODES = [
+    { code: "+92", label: "PK", flag: "🇵🇰", max: 10, hint: "3xxxxxxxxx" },
+    { code: "+91", label: "IN", flag: "🇮🇳", max: 10, hint: "xxxxxxxxxx" },
+    { code: "+971", label: "AE", flag: "🇦🇪", max: 9, hint: "xxxxxxxxx" },
+    { code: "+966", label: "SA", flag: "🇸🇦", max: 9, hint: "xxxxxxxxx" },
+    { code: "+44", label: "UK", flag: "🇬🇧", max: 10, hint: "9-10 digits" },
+    { code: "+1", label: "US", flag: "🇺🇸", max: 10, hint: "xxxxxxxxxx" },
+  ];
+
   const [form, setForm] = useState({
     name: "",
     email: "",
+    phoneCountryCode: "+92",
     phone: "",
     password: "",
     city: "",
+    address: "",
     category: "",
     shortIntro: "",
   });
@@ -40,11 +51,19 @@ export default function Register() {
     setForm((prev) => ({
       ...prev,
       password: "",
-      // ✅ keep city for both, but reset pro-only fields
       category: "",
       shortIntro: "",
     }));
     setFiles({ profilePic: null, cnicPic: null, feeScreenshot: null });
+  }
+
+  const phoneRule = useMemo(() => {
+    return COUNTRY_CODES.find((c) => c.code === form.phoneCountryCode) || COUNTRY_CODES[0];
+  }, [form.phoneCountryCode]);
+
+  function setPhoneDigits(value) {
+    const digits = String(value || "").replace(/[^\d]/g, "");
+    setForm((p) => ({ ...p, phone: digits.slice(0, phoneRule.max) }));
   }
 
   async function submit(e) {
@@ -53,23 +72,24 @@ export default function Register() {
     if (!form.name.trim()) return toast.error("Name required");
     if (!form.email.trim() || !vEmail(form.email)) return toast.error("Valid email required");
     if (!form.phone.trim()) return toast.error("Phone required");
+    if (!form.city) return toast.error("City required"); // ✅ NOW REQUIRED FOR BOTH
     if (form.password.length < 6) return toast.error("Password min 6 chars");
+    if (!form.address.trim()) return toast.error("Complete address required");
 
     try {
       setLoading(true);
 
-      // ✅ CLIENT
       if (role === "client") {
         const fd = new FormData();
         fd.append("name", form.name.trim());
         fd.append("email", form.email.trim());
+        fd.append("phoneCountryCode", form.phoneCountryCode);
         fd.append("phone", form.phone.trim());
         fd.append("password", form.password);
 
-        // ✅ city optional
-        if (form.city) fd.append("city", form.city);
+        fd.append("city", form.city); // ✅ always
+        fd.append("address", form.address.trim());
 
-        // ✅ client profile pic optional
         if (files.profilePic) fd.append("profilePic", files.profilePic);
 
         await api.post("/auth/register/client", fd);
@@ -79,8 +99,6 @@ export default function Register() {
         return;
       }
 
-      // ✅ PROFESSIONAL
-      if (!form.city) return toast.error("City required");
       if (!form.category) return toast.error("Category required");
       if (!files.profilePic) return toast.error("Profile picture required");
       if (!files.cnicPic) return toast.error("CNIC picture required");
@@ -89,10 +107,12 @@ export default function Register() {
       const fd = new FormData();
       fd.append("name", form.name.trim());
       fd.append("email", form.email.trim());
+      fd.append("phoneCountryCode", form.phoneCountryCode);
       fd.append("phone", form.phone.trim());
       fd.append("password", form.password);
 
       fd.append("city", form.city);
+      fd.append("address", form.address.trim());
       fd.append("category", form.category);
       fd.append("shortIntro", form.shortIntro || "");
 
@@ -129,7 +149,6 @@ export default function Register() {
           >
             Client
           </button>
-
           <button
             type="button"
             onClick={() => switchRole("professional")}
@@ -152,35 +171,64 @@ export default function Register() {
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
-          <input
-            className="border p-2 rounded"
-            placeholder="Phone"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
+
+          {/* Phone */}
+          <div className="md:col-span-2">
+            <label className="text-xs text-gray-500">Phone</label>
+            <div className="mt-1 flex items-center border rounded overflow-hidden bg-white">
+              <select
+                className="h-10 px-2 text-sm bg-transparent border-r outline-none"
+                value={form.phoneCountryCode}
+                onChange={(e) => setForm({ ...form, phoneCountryCode: e.target.value, phone: "" })}
+              >
+                {COUNTRY_CODES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.code}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                className="flex-1 h-10 px-3 outline-none"
+                placeholder={`e.g. ${phoneRule.hint}`}
+                inputMode="numeric"
+                value={form.phone}
+                onChange={(e) => setPhoneDigits(e.target.value)}
+              />
+
+              <div className="px-3 text-xs text-gray-500 whitespace-nowrap">
+                {form.phone.length}/{phoneRule.max}
+              </div>
+            </div>
+          </div>
+
           <input
             type="password"
-            className="border p-2 rounded"
+            className="border p-2 rounded md:col-span-2"
             placeholder="Password (min 6)"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
 
-          {/* ✅ CITY: client + professional both */}
+          {/* ✅ City mandatory for BOTH */}
           <select
             className="border p-2 rounded md:col-span-2"
             value={form.city}
             onChange={(e) => setForm({ ...form, city: e.target.value })}
           >
-            <option value="">
-              {role === "client" ? "Select City (optional)" : "Select City"}
-            </option>
+            <option value="">Select City</option>
             {CITIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
 
-          {/* ✅ Category only for professional */}
+          <input
+            className="border p-2 rounded md:col-span-2"
+            placeholder="Complete Address (Street, Area, etc.)"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+          />
+
           {role === "professional" && (
             <select
               className="border p-2 rounded md:col-span-2"
@@ -195,21 +243,17 @@ export default function Register() {
           )}
         </div>
 
-        {/* ✅ CLIENT profile pic (optional) */}
         {role === "client" && (
           <div className="border rounded p-3 space-y-2 text-sm">
             <div className="font-semibold">Profile Picture (optional)</div>
             <input
               type="file"
               accept="image/*"
-              onChange={(e) =>
-                setFiles({ ...files, profilePic: e.target.files?.[0] || null })
-              }
+              onChange={(e) => setFiles({ ...files, profilePic: e.target.files?.[0] || null })}
             />
           </div>
         )}
 
-        {/* ✅ PROFESSIONAL extra fields */}
         {role === "professional" && (
           <div className="space-y-3 border rounded p-3">
             <textarea
@@ -226,9 +270,7 @@ export default function Register() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) =>
-                    setFiles({ ...files, profilePic: e.target.files?.[0] || null })
-                  }
+                  onChange={(e) => setFiles({ ...files, profilePic: e.target.files?.[0] || null })}
                 />
               </label>
 
@@ -237,9 +279,7 @@ export default function Register() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) =>
-                    setFiles({ ...files, cnicPic: e.target.files?.[0] || null })
-                  }
+                  onChange={(e) => setFiles({ ...files, cnicPic: e.target.files?.[0] || null })}
                 />
               </label>
 
@@ -248,9 +288,7 @@ export default function Register() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) =>
-                    setFiles({ ...files, feeScreenshot: e.target.files?.[0] || null })
-                  }
+                  onChange={(e) => setFiles({ ...files, feeScreenshot: e.target.files?.[0] || null })}
                 />
               </label>
             </div>

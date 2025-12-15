@@ -17,14 +17,11 @@ dotenv.config();
 
 const app = express();
 
-// ✅ 1) Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ 2) Cookie parser MUST be before routes (admin_token cookie read)
 app.use(cookieParser());
 
-// ✅ 3) CORS with credentials (cookie allow) - origin must be exact client URL
 app.use(
   cors({
     origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
@@ -32,17 +29,15 @@ app.use(
   })
 );
 
-// ✅ 4) Static uploads folder
-// NOTE: uploads folder should be at project root: server/uploads
+// uploads
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/uploads", express.static(path.join(process.cwd(), "src", "uploads")));
 
-
-// ✅ routes
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/professionals", professionalsRoutes);
+
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/gigs", gigRoutes);
 app.use("/api/gig-comments", gigCommentRoutes);

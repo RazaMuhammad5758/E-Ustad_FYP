@@ -27,34 +27,26 @@ function onImgError(e) {
 export default function Admin() {
   const nav = useNavigate();
 
-  // auth
   const [checking, setChecking] = useState(true);
 
-  // pending approvals
   const [pending, setPending] = useState([]);
   const [selected, setSelected] = useState(null);
 
-  // tables
   const [clients, setClients] = useState([]);
   const [professionals, setProfessionals] = useState([]);
 
-  // stats
   const [catStats, setCatStats] = useState([]);
   const [bookingStats, setBookingStats] = useState([]);
 
   const [loading, setLoading] = useState(false);
-
-  // ✅ active button / section
   const [activeTab, setActiveTab] = useState("");
 
-  // ✅ section refs for scroll
   const statsRef = useRef(null);
   const pendingRef = useRef(null);
   const clientsRef = useRef(null);
   const professionalsRef = useRef(null);
 
   function scrollTo(ref) {
-    // smooth scroll + little delay so DOM update settles
     setTimeout(() => {
       ref?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
@@ -68,11 +60,10 @@ export default function Admin() {
     return `${base} ${active}`;
   }
 
-  // ✅ Admin session check (fix refresh logout)
   useEffect(() => {
     (async () => {
       try {
-        await api.get("/admin/me"); // ✅ cookie based auth
+        await api.get("/admin/me");
         setChecking(false);
       } catch {
         nav("/admin/login");
@@ -177,9 +168,7 @@ export default function Admin() {
   }
 
   async function deleteUser(id) {
-    const ok = window.confirm(
-      "Are you sure you want to DELETE this user permanently?"
-    );
+    const ok = window.confirm("Are you sure you want to DELETE this user permanently?");
     if (!ok) return;
 
     try {
@@ -187,7 +176,6 @@ export default function Admin() {
       toast.success("User deleted");
       setSelected(null);
 
-      // refresh whatever is loaded
       await Promise.all([loadClients(), loadProfessionals(), loadPending(), loadStats()]);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Delete failed");
@@ -205,7 +193,6 @@ export default function Admin() {
         </button>
       </div>
 
-      {/* ✅ Load buttons (active highlight) */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={loadPending}
@@ -223,10 +210,7 @@ export default function Admin() {
 
         <button
           onClick={loadClients}
-          className={tabBtnClass(
-            "clients",
-            "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60"
-          )}
+          className={tabBtnClass("clients", "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60")}
           disabled={loading}
         >
           Load Clients
@@ -234,10 +218,7 @@ export default function Admin() {
 
         <button
           onClick={loadProfessionals}
-          className={tabBtnClass(
-            "professionals",
-            "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60"
-          )}
+          className={tabBtnClass("professionals", "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60")}
           disabled={loading}
         >
           Load Professionals
@@ -245,17 +226,13 @@ export default function Admin() {
 
         <button
           onClick={loadStats}
-          className={tabBtnClass(
-            "stats",
-            "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60"
-          )}
+          className={tabBtnClass("stats", "bg-white border rounded px-4 py-2 text-sm disabled:opacity-60")}
           disabled={loading}
         >
           Load Stats
         </button>
       </div>
 
-      {/* ✅ STATS (scroll target) */}
       <div ref={statsRef} className="grid md:grid-cols-2 gap-4 scroll-mt-6">
         <div className="bg-white border rounded-xl p-4">
           <div className="font-bold mb-2">Professionals by Category</div>
@@ -270,9 +247,7 @@ export default function Admin() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          {catStats.length === 0 && (
-            <div className="text-sm text-gray-500 mt-2">No data</div>
-          )}
+          {catStats.length === 0 && <div className="text-sm text-gray-500 mt-2">No data</div>}
         </div>
 
         <div className="bg-white border rounded-xl p-4">
@@ -288,67 +263,53 @@ export default function Admin() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          {bookingStats.length === 0 && (
-            <div className="text-sm text-gray-500 mt-2">No data</div>
-          )}
+          {bookingStats.length === 0 && <div className="text-sm text-gray-500 mt-2">No data</div>}
         </div>
       </div>
 
-      {/* ✅ Pending Approvals (scroll target) */}
+      {/* ✅ Pending */}
       <div ref={pendingRef} className="bg-white border rounded-xl p-4 space-y-3 scroll-mt-6">
         <div className="font-bold">Pending Professionals</div>
 
         {pending.map((p) => (
-          <div
-            key={p._id}
-            className="border rounded p-4 flex items-center justify-between gap-3"
-          >
-            <div>
-               <img
-          src={p.profilePic ? `${BASE}/uploads/${p.profilePic}` : "/dp.png"}
-          onError={(e) => {
-            e.currentTarget.src = "/dp.png"; // fallback
-          }}
-          className="w-12 h-12 rounded-full object-cover border"
-          alt="dp"
-        />
-              <div className="font-bold">
-                {p.name} — {p.email}
-              </div>
-              <div className="text-sm text-gray-600">
-                Category: {p.professional?.category || "-"} | Phone: {p.phone}
+          <div key={p._id} className="border rounded p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <img
+                src={p.profilePic ? `${BASE}/uploads/${p.profilePic}` : "/dp.png"}
+                onError={(e) => (e.currentTarget.src = "/dp.png")}
+                className="w-12 h-12 rounded-full object-cover border"
+                alt="dp"
+              />
+              <div>
+                <div className="font-bold">{p.name} — {p.email}</div>
+                <div className="text-sm text-gray-600">
+                  Category: {p.professional?.category || "-"} | Phone: {p.phone}
+                </div>
+                {/* ✅ Address show */}
+                <div className="text-sm text-gray-600">
+                  Address: {p.address?.trim() ? p.address : "-"}
+                </div>
               </div>
             </div>
 
             <div className="flex gap-2">
-              <button
-                onClick={() => setSelected(p)}
-                className="bg-gray-800 text-white px-3 py-2 rounded"
-              >
+              <button onClick={() => setSelected(p)} className="bg-gray-800 text-white px-3 py-2 rounded">
                 View More
               </button>
-              <button
-                onClick={() => approve(p._id)}
-                className="bg-green-600 text-white px-3 py-2 rounded"
-              >
+              <button onClick={() => approve(p._id)} className="bg-green-600 text-white px-3 py-2 rounded">
                 Approve
               </button>
-              <button
-                onClick={() => reject(p._id)}
-                className="bg-red-600 text-white px-3 py-2 rounded"
-              >
+              <button onClick={() => reject(p._id)} className="bg-red-600 text-white px-3 py-2 rounded">
                 Reject
               </button>
             </div>
           </div>
         ))}
 
-        {pending.length === 0 && (
-          <div className="text-gray-500 text-sm">No pending approvals</div>
-        )}
+        {pending.length === 0 && <div className="text-gray-500 text-sm">No pending approvals</div>}
       </div>
 
-      {/* ✅ Clients Table (scroll target) */}
+      {/* ✅ Clients */}
       <div ref={clientsRef} className="bg-white border rounded-xl p-4 scroll-mt-6">
         <div className="font-bold mb-3">Clients</div>
 
@@ -359,26 +320,24 @@ export default function Admin() {
                 <th className="py-2">Name</th>
                 <th>Phone</th>
                 <th>Email</th>
+                <th>Address</th>
                 <th className="w-56">Actions</th>
               </tr>
             </thead>
             <tbody>
               {clients.map((c) => (
-                <tr key={c._id} className="border-b">
+                <tr key={c._id} className="border-b align-top">
                   <td className="py-2">{c.name}</td>
                   <td>{c.phone || "-"}</td>
                   <td>{c.email}</td>
+                  <td className="max-w-[260px]">
+                    {c.address?.trim() ? c.address : "-"}
+                  </td>
                   <td className="py-2 flex gap-2">
-                    <button
-                      onClick={() => setSelected(c)}
-                      className="border rounded px-3 py-1"
-                    >
+                    <button onClick={() => setSelected(c)} className="border rounded px-3 py-1">
                       View Profile
                     </button>
-                    <button
-                      onClick={() => deleteUser(c._id)}
-                      className="bg-red-600 text-white rounded px-3 py-1"
-                    >
+                    <button onClick={() => deleteUser(c._id)} className="bg-red-600 text-white rounded px-3 py-1">
                       Delete
                     </button>
                   </td>
@@ -386,7 +345,7 @@ export default function Admin() {
               ))}
               {clients.length === 0 && (
                 <tr>
-                  <td className="py-2 text-gray-500" colSpan={4}>
+                  <td className="py-2 text-gray-500" colSpan={5}>
                     No clients loaded. Click “Load Clients”.
                   </td>
                 </tr>
@@ -396,7 +355,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* ✅ Professionals Table (scroll target) */}
+      {/* ✅ Professionals */}
       <div ref={professionalsRef} className="bg-white border rounded-xl p-4 scroll-mt-6">
         <div className="font-bold mb-3">Professionals</div>
 
@@ -408,38 +367,33 @@ export default function Admin() {
                 <th>Phone</th>
                 <th>Category</th>
                 <th>Status</th>
+                <th>Address</th>
                 <th className="w-56">Actions</th>
               </tr>
             </thead>
             <tbody>
               {professionals.map((p) => (
-                <tr key={p._id} className="border-b">
+                <tr key={p._id} className="border-b align-top">
                   <td className="py-2 flex items-center gap-2">
-                    {p.profilePic && (
-                      <img
-  src={imgUrl(p.profilePic)}
-  onError={onImgError}
-  className="w-9 h-9 rounded-full object-cover border"
-  alt="dp"
-/>
-
-                    )}
+                    <img
+                      src={imgUrl(p.profilePic)}
+                      onError={onImgError}
+                      className="w-9 h-9 rounded-full object-cover border"
+                      alt="dp"
+                    />
                     <span>{p.name}</span>
                   </td>
                   <td>{p.phone || "-"}</td>
                   <td>{p.professional?.category || "-"}</td>
                   <td>{p.status || "-"}</td>
+                  <td className="max-w-[260px]">
+                    {p.address?.trim() ? p.address : "-"}
+                  </td>
                   <td className="py-2 flex gap-2">
-                    <button
-                      onClick={() => setSelected(p)}
-                      className="border rounded px-3 py-1"
-                    >
+                    <button onClick={() => setSelected(p)} className="border rounded px-3 py-1">
                       View Profile
                     </button>
-                    <button
-                      onClick={() => deleteUser(p._id)}
-                      className="bg-red-600 text-white rounded px-3 py-1"
-                    >
+                    <button onClick={() => deleteUser(p._id)} className="bg-red-600 text-white rounded px-3 py-1">
                       Delete
                     </button>
                   </td>
@@ -447,7 +401,7 @@ export default function Admin() {
               ))}
               {professionals.length === 0 && (
                 <tr>
-                  <td className="py-2 text-gray-500" colSpan={5}>
+                  <td className="py-2 text-gray-500" colSpan={6}>
                     No professionals loaded. Click “Load Professionals”.
                   </td>
                 </tr>
@@ -457,7 +411,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* View modal */}
+      {/* ✅ View modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-xl p-5 space-y-4 shadow-lg">
@@ -465,10 +419,7 @@ export default function Admin() {
               <h2 className="text-xl font-bold">
                 {selected.role === "client" ? "Client Details" : "User Details"}
               </h2>
-              <button
-                onClick={() => setSelected(null)}
-                className="text-sm underline"
-              >
+              <button onClick={() => setSelected(null)} className="text-sm underline">
                 Close
               </button>
             </div>
@@ -479,20 +430,25 @@ export default function Admin() {
               <div><b>Phone:</b> {selected.phone || "-"}</div>
               <div><b>Role:</b> {selected.role || "-"}</div>
               <div><b>Status:</b> {selected.status || "-"}</div>
-              
+
+              {/* ✅ Address */}
+              <div className="md:col-span-2">
+                <b>Address:</b> {selected.address?.trim() ? selected.address : "-"}
+              </div>
+
               {selected.professional?.category && (
                 <div><b>Category:</b> {selected.professional.category}</div>
               )}
             </div>
-            {/* ✅ Intro (Professional) */}
-{selected?.professional && (
-  <div className="text-sm">
-    <b>Intro:</b>
-    <div className="border rounded p-2 mt-1">
-      {selected.professional.shortIntro?.trim() || "-"}
-    </div>
-  </div>
-)}
+
+            {selected?.professional && (
+              <div className="text-sm">
+                <b>Intro:</b>
+                <div className="border rounded p-2 mt-1">
+                  {selected.professional.shortIntro?.trim() || "-"}
+                </div>
+              </div>
+            )}
 
             <div className="grid md:grid-cols-3 gap-3">
               {selected.profilePic && (
@@ -502,6 +458,7 @@ export default function Admin() {
                     className="w-full h-40 object-cover rounded border"
                     src={`${BASE}/uploads/${selected.profilePic}`}
                     alt="profile"
+                    onError={onImgError}
                   />
                 </div>
               )}
@@ -513,6 +470,7 @@ export default function Admin() {
                     className="w-full h-40 object-cover rounded border"
                     src={`${BASE}/uploads/${selected.professional.cnicPic}`}
                     alt="cnic"
+                    onError={onImgError}
                   />
                 </div>
               )}
@@ -524,6 +482,7 @@ export default function Admin() {
                     className="w-full h-40 object-cover rounded border"
                     src={`${BASE}/uploads/${selected.professional.feeScreenshot}`}
                     alt="fee"
+                    onError={onImgError}
                   />
                 </div>
               )}
@@ -532,25 +491,16 @@ export default function Admin() {
             <div className="flex gap-2 justify-end pt-2">
               {selected.role === "professional" && selected.status === "pending" && (
                 <>
-                  <button
-                    onClick={() => approve(selected._id)}
-                    className="bg-green-600 text-white px-4 py-2 rounded"
-                  >
+                  <button onClick={() => approve(selected._id)} className="bg-green-600 text-white px-4 py-2 rounded">
                     Approve
                   </button>
-                  <button
-                    onClick={() => reject(selected._id)}
-                    className="bg-red-600 text-white px-4 py-2 rounded"
-                  >
+                  <button onClick={() => reject(selected._id)} className="bg-red-600 text-white px-4 py-2 rounded">
                     Reject
                   </button>
                 </>
               )}
 
-              <button
-                onClick={() => deleteUser(selected._id)}
-                className="bg-red-600 text-white px-4 py-2 rounded"
-              >
+              <button onClick={() => deleteUser(selected._id)} className="bg-red-600 text-white px-4 py-2 rounded">
                 Delete User
               </button>
             </div>

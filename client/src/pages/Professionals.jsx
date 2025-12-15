@@ -52,7 +52,6 @@ export default function Professionals({ embedded = false }) {
     }
   }
 
-  // ✅ on first mount: read query params like ?category=Electrician
   useEffect(() => {
     const qpQ = searchParams.get("q") || "";
     const qpCity = searchParams.get("city") || "";
@@ -80,22 +79,15 @@ export default function Professionals({ embedded = false }) {
               <p className="text-sm text-gray-500">Search by name, city, category</p>
             </div>
 
-            {/* ✅ Before login: don't show Dashboard button */}
-            {user ? (
+            {/* ✅ only show dashboard when logged in */}
+            {user && (
               <Link className="text-sm underline" to="/dashboard">
                 Dashboard
               </Link>
-            ) 
-            : (
-              <Link className="text-sm underline" to="/">
-                {/* Home */}
-              </Link>
-            )
-            }
+            )}
           </div>
         )}
 
-        {/* Filters */}
         <div className="bg-white border rounded-xl p-4 grid md:grid-cols-4 gap-3">
           <input
             className="border p-2 rounded"
@@ -142,7 +134,6 @@ export default function Professionals({ embedded = false }) {
           </button>
         </div>
 
-        {/* List */}
         {loading ? (
           <div className="p-6">Loading...</div>
         ) : (
@@ -153,12 +144,12 @@ export default function Professionals({ embedded = false }) {
                   src={
                     p.profilePic
                       ? `http://localhost:5000/uploads/${p.profilePic}`
-                      : "/default-avatar.png"
+                      : "/dp.jpg"
                   }
                   className="w-full h-40 object-cover rounded"
                   alt="dp"
                   onError={(e) => {
-                    e.currentTarget.src = "/default-avatar.png";
+                    e.currentTarget.src = "/dp.jpg";
                   }}
                 />
 

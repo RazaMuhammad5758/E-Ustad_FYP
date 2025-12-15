@@ -1,9 +1,30 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
 const BASE = "http://localhost:5000";
+
+const COUNTRY_CODES = [
+  { code: "+92", label: "PK", flag: "🇵🇰", max: 10 },
+  { code: "+91", label: "IN", flag: "🇮🇳", max: 10 },
+  { code: "+971", label: "AE", flag: "🇦🇪", max: 9 },
+  { code: "+966", label: "SA", flag: "🇸🇦", max: 9 },
+  { code: "+44", label: "UK", flag: "🇬🇧", max: 10 },
+  { code: "+1", label: "US", flag: "🇺🇸", max: 10 },
+];
+
+function splitPhone(phone) {
+  const raw = String(phone || "").trim();
+  if (!raw.startsWith("+")) {
+    return { cc: "+92", national: String(raw).replace(/[^\d]/g, "").replace(/^0/, "") };
+  }
+  const match = raw.match(/^\+(\d{1,3})(\d+)$/);
+  if (!match) return { cc: "+92", national: String(raw).replace(/[^\d]/g, "") };
+  const cc = "+" + match[1];
+  const national = match[2];
+  return { cc, national };
+}
 
 export default function ClientProfile() {
   const { user, refreshMe, updateMyProfile } = useAuth();
@@ -29,6 +50,7 @@ export default function ClientProfile() {
 
   const [form, setForm] = useState({
     name: "",
+    phoneCountryCode: "+92",
     phone: "",
     city: "",
     address: "",
@@ -36,16 +58,26 @@ export default function ClientProfile() {
 
   const [profilePic, setProfilePic] = useState(null);
 
-  // ✅ Load latest user into context + hydrate form
+  const phoneRule = useMemo(() => {
+    return COUNTRY_CODES.find((c) => c.code === form.phoneCountryCode) || COUNTRY_CODES[0];
+  }, [form.phoneCountryCode]);
+
+  function setPhoneDigits(value) {
+    const digits = String(value || "").replace(/[^\d]/g, "");
+    setForm((p) => ({ ...p, phone: digits.slice(0, phoneRule.max) }));
+  }
+
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
-        const u = await refreshMe(); // calls /auth/me internally
+        const u = await refreshMe();
         if (u) {
+          const { cc, national } = splitPhone(u.phone);
           setForm({
             name: u?.name || "",
-            phone: u?.phone || "",
+            phoneCountryCode: u?.phoneCountryCode || cc || "+92",
+            phone: u?.phoneNational || national || "",
             city: u?.city || "",
             address: u?.address || "",
           });
@@ -62,28 +94,30 @@ export default function ClientProfile() {
   async function saveProfile() {
     if (!form.name.trim()) return toast.error("Name required");
     if (!form.phone.trim()) return toast.error("Phone required");
+    if (!form.city) return toast.error("City required");
 
     try {
       setSaving(true);
 
       const fd = new FormData();
       fd.append("name", form.name.trim());
+      fd.append("phoneCountryCode", form.phoneCountryCode);
       fd.append("phone", form.phone.trim());
-      fd.append("city", form.city || "");
+      fd.append("city", form.city);
       fd.append("address", form.address || "");
       if (profilePic) fd.append("profilePic", profilePic);
 
-      // ✅ updates backend + updates AuthContext user
       const updated = await updateMyProfile(fd);
 
       toast.success("Profile updated");
       setEdit(false);
       setProfilePic(null);
 
-      // ✅ keep form synced after save
+      const { cc, national } = splitPhone(updated?.phone);
       setForm({
         name: updated?.name || "",
-        phone: updated?.phone || "",
+        phoneCountryCode: updated?.phoneCountryCode || cc || "+92",
+        phone: updated?.phoneNational || national || "",
         city: updated?.city || "",
         address: updated?.address || "",
       });
@@ -119,10 +153,7 @@ export default function ClientProfile() {
                 <div className="text-sm">City: {user.city || "-"}</div>
                 <div className="text-sm">Address: {user.address || "-"}</div>
 
-                <button
-                  onClick={() => setEdit(true)}
-                  className="border rounded px-3 py-2 text-sm"
-                >
+                <button onClick={() => setEdit(true)} className="border rounded px-3 py-2 text-sm">
                   Edit Profile
                 </button>
               </>
@@ -137,12 +168,35 @@ export default function ClientProfile() {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
 
-                <input
-                  className="border p-2 rounded w-full"
-                  placeholder="Phone"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
+                {/* ✅ Phone with code INSIDE */}
+                <div>
+                  <label className="text-xs text-gray-500">Phone</label>
+                  <div className="mt-1 flex items-center border rounded overflow-hidden bg-white">
+                    <select
+                      className="h-10 px-2 text-sm bg-transparent border-r outline-none"
+                      value={form.phoneCountryCode}
+                      onChange={(e) => setForm({ ...form, phoneCountryCode: e.target.value, phone: "" })}
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} {c.code}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      className="flex-1 h-10 px-3 outline-none"
+                      placeholder="Phone"
+                      inputMode="numeric"
+                      value={form.phone}
+                      onChange={(e) => setPhoneDigits(e.target.value)}
+                    />
+
+                    <div className="px-3 text-xs text-gray-500 whitespace-nowrap">
+                      {form.phone.length}/{phoneRule.max}
+                    </div>
+                  </div>
+                </div>
 
                 <select
                   className="border p-2 rounded w-full"
@@ -166,14 +220,7 @@ export default function ClientProfile() {
 
                 <div className="text-sm">
                   <div className="font-semibold mb-1">Profile Picture</div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setProfilePic(e.target.files?.[0] || null)}
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    (Optional) If you don’t select a file, old picture stays.
-                  </div>
+                  <input type="file" accept="image/*" onChange={(e) => setProfilePic(e.target.files?.[0] || null)} />
                 </div>
 
                 <div className="flex gap-2">
@@ -189,9 +236,11 @@ export default function ClientProfile() {
                     onClick={() => {
                       setEdit(false);
                       setProfilePic(null);
+                      const { cc, national } = splitPhone(user?.phone);
                       setForm({
                         name: user?.name || "",
-                        phone: user?.phone || "",
+                        phoneCountryCode: user?.phoneCountryCode || cc || "+92",
+                        phone: user?.phoneNational || national || "",
                         city: user?.city || "",
                         address: user?.address || "",
                       });
@@ -212,14 +261,15 @@ export default function ClientProfile() {
                 className="w-full h-56 object-cover rounded border"
                 alt="dp"
                 onError={(e) => {
-                  e.currentTarget.src =
-                    "https://ui-avatars.com/api/?name=User&background=random";
+                  e.currentTarget.src = "/dp.jpg";
                 }}
               />
             ) : (
-              <div className="h-56 border rounded flex items-center justify-center text-gray-500">
-                No profile picture
-              </div>
+              <img
+                src="/dp.jpg"
+                className="w-full h-56 object-cover rounded border"
+                alt="default"
+              />
             )}
           </div>
         </div>

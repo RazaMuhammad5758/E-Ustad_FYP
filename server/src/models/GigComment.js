@@ -6,20 +6,19 @@ const gigCommentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Gig",
       required: true,
-      index: true, // ✅ fast comment fetch per gig
+      index: true,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true, // ✅ cascade delete fast
+      index: true,
     },
-    text: { type: String, required: true },
+    text: { type: String, required: true, trim: true },
   },
   { timestamps: true }
 );
 
-// compound index (very useful)
 gigCommentSchema.index({ gigId: 1, createdAt: -1 });
 
 export default mongoose.model("GigComment", gigCommentSchema);

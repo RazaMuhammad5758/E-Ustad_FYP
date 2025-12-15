@@ -23,7 +23,6 @@ function signToken(userId) {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
 
-// ✅ helper: only run multer when request is multipart/form-data
 function maybeUploadSingle(fieldName) {
   return (req, res, next) => {
     const ct = req.headers["content-type"] || "";
@@ -34,17 +33,68 @@ function maybeUploadSingle(fieldName) {
   };
 }
 
+/* -------------------- ✅ PHONE NORMALIZE + VALIDATE -------------------- */
+
+const PHONE_RULES = {
+  "+92": { min: 10, max: 10, dropLeadingZero: true },
+  "+91": { min: 10, max: 10, dropLeadingZero: true },
+  "+971": { min: 9, max: 9, dropLeadingZero: true },
+  "+966": { min: 9, max: 9, dropLeadingZero: true },
+  "+44": { min: 9, max: 10, dropLeadingZero: true },
+  "+1": { min: 10, max: 10, dropLeadingZero: false },
+};
+
+function cleanDigits(x) {
+  return String(x || "").replace(/[^\d]/g, "");
+}
+
+function normalizeCountryCode(cc) {
+  const raw = String(cc || "").trim();
+  if (!raw) return "+92";
+  if (raw.startsWith("+")) return raw;
+  return "+" + cleanDigits(raw);
+}
+
+function normalizePhone(countryCode, rawPhone) {
+  const cc = normalizeCountryCode(countryCode);
+  const rules = PHONE_RULES[cc] || { min: 7, max: 15, dropLeadingZero: true };
+
+  let national = cleanDigits(rawPhone);
+
+  if (rules.dropLeadingZero && national.startsWith("0")) {
+    national = national.slice(1);
+  }
+
+  if (national.length > rules.max) {
+    return { ok: false, message: `Phone too long for ${cc}. Max ${rules.max} digits.` };
+  }
+  if (national.length < rules.min) {
+    return { ok: false, message: `Phone too short for ${cc}. Min ${rules.min} digits.` };
+  }
+
+  const full = `${cc}${national}`;
+  return { ok: true, phone: full, phoneCountryCode: cc, phoneNational: national };
+}
+
+function normalizeCity(city) {
+  const c = String(city || "").trim();
+  return c;
+}
+
 /* -------------------- REGISTER -------------------- */
 
-// ✅ CLIENT register (JSON) + OPTIONAL profilePic via multipart
+// ✅ CLIENT register (multipart or JSON) + OPTIONAL profilePic
 router.post("/register/client", maybeUploadSingle("profilePic"), async (req, res) => {
   try {
-    // JSON or multipart both supported
-    const { name, email, phone, password, city } = req.body;
+    const { name, email, phone, password, city, phoneCountryCode, address } = req.body;
 
     if (!name || !email || !phone || !password) {
       return res.status(400).json({ message: "Missing fields" });
     }
+
+    // ✅ city required for client now
+    const cityTrim = normalizeCity(city);
+    if (!cityTrim) return res.status(400).json({ message: "City is required" });
 
     const exists = await User.findOne({ email: String(email).toLowerCase() });
     if (exists) return res.status(409).json({ message: "Email already in use" });
@@ -53,16 +103,21 @@ router.post("/register/client", maybeUploadSingle("profilePic"), async (req, res
       return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const norm = normalizePhone(phoneCountryCode, phone);
+    if (!norm.ok) return res.status(400).json({ message: norm.message });
 
-    const profilePic = req.file?.filename || ""; // ✅ if user uploaded
+    const passwordHash = await bcrypt.hash(password, 10);
+    const profilePic = req.file?.filename || "";
 
     const user = await User.create({
       role: "client",
       name: String(name).trim(),
       email: String(email).toLowerCase(),
-      phone: String(phone).trim(),
-      city: city ? String(city).trim() : "",
+      phone: norm.phone,
+      phoneCountryCode: norm.phoneCountryCode,
+      phoneNational: norm.phoneNational,
+      city: cityTrim, // ✅ now required
+      address: address ? String(address).trim() : "",
       profilePic,
       passwordHash,
       status: "active",
@@ -89,11 +144,25 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      const { name, email, phone, city, category, shortIntro, password } = req.body;
+      const {
+        name,
+        email,
+        phone,
+        city,
+        category,
+        shortIntro,
+        password,
+        phoneCountryCode,
+        address,
+      } = req.body;
 
+      // city already required here, keep it
       if (!name || !email || !phone || !city || !category || !password) {
         return res.status(400).json({ message: "Missing fields" });
       }
+
+      const cityTrim = normalizeCity(city);
+      if (!cityTrim) return res.status(400).json({ message: "City is required" });
 
       if (String(password).length < 6) {
         return res.status(400).json({ message: "Password must be at least 6 characters" });
@@ -101,6 +170,9 @@ router.post(
 
       const exists = await User.findOne({ email: String(email).toLowerCase() });
       if (exists) return res.status(409).json({ message: "Email already in use" });
+
+      const norm = normalizePhone(phoneCountryCode, phone);
+      if (!norm.ok) return res.status(400).json({ message: norm.message });
 
       const profilePic = req.files?.profilePic?.[0]?.filename || "";
       const cnicPic = req.files?.cnicPic?.[0]?.filename || "";
@@ -116,8 +188,11 @@ router.post(
         role: "professional",
         name: String(name).trim(),
         email: String(email).toLowerCase(),
-        phone: String(phone).trim(),
-        city: String(city).trim(),
+        phone: norm.phone,
+        phoneCountryCode: norm.phoneCountryCode,
+        phoneNational: norm.phoneNational,
+        city: cityTrim,
+        address: address ? String(address).trim() : "",
         passwordHash,
         status: "pending",
         profilePic,
@@ -179,15 +254,7 @@ router.post("/logout", (req, res) => {
 router.get("/me", requireAuth, (req, res) => res.json({ user: req.user }));
 
 /* -------------------- ✅ EDIT PROFILE -------------------- */
-/**
- * PUT /api/auth/me
- * Supports:
- * - JSON (name/phone/city/address...)
- * - multipart/form-data (same + profilePic upload)
- *
- * Client can update: name, phone, city, address, profilePic
- * Professional can update: name, phone, city, address, profilePic + (category, shortIntro) in ProfessionalProfile
- */
+
 router.put("/me", requireAuth, maybeUploadSingle("profilePic"), async (req, res) => {
   try {
     const userId = req.user._id;
@@ -195,26 +262,38 @@ router.put("/me", requireAuth, maybeUploadSingle("profilePic"), async (req, res)
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const { name, phone, city, address, category, shortIntro } = req.body || {};
+    const { name, phone, city, address, category, shortIntro, phoneCountryCode } = req.body || {};
 
-    // user fields (both roles)
     if (name !== undefined) user.name = String(name).trim();
-    if (phone !== undefined) user.phone = String(phone).trim();
-    if (city !== undefined) user.city = String(city).trim();
+
+    // ✅ city mandatory on update too (if provided empty OR not provided at all => we enforce not empty)
+    // If frontend always sends city, this will work perfectly.
+    const nextCity =
+      city !== undefined ? normalizeCity(city) : normalizeCity(user.city);
+
+    if (!nextCity) return res.status(400).json({ message: "City is required" });
+    user.city = nextCity;
+
     if (address !== undefined) user.address = String(address).trim();
 
-    // profile pic (if multipart)
+    if (phone !== undefined) {
+      const norm = normalizePhone(phoneCountryCode || user.phoneCountryCode, phone);
+      if (!norm.ok) return res.status(400).json({ message: norm.message });
+
+      user.phone = norm.phone;
+      user.phoneCountryCode = norm.phoneCountryCode;
+      user.phoneNational = norm.phoneNational;
+    }
+
     if (req.file?.filename) {
       user.profilePic = req.file.filename;
     }
 
     await user.save();
 
-    // professional extra fields
     if (user.role === "professional") {
       const prof = await ProfessionalProfile.findOne({ userId: user._id });
 
-      // if profile missing for some reason, create it (safe)
       if (!prof) {
         await ProfessionalProfile.create({
           userId: user._id,

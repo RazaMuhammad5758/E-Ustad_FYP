@@ -6,11 +6,17 @@ const userSchema = new mongoose.Schema(
 
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, trim: true, lowercase: true, unique: true },
+
     phone: { type: String, required: true, trim: true },
+
+    phoneCountryCode: { type: String, default: "+92" },
+    phoneNational: { type: String, default: "" },
 
     passwordHash: { type: String, default: "" },
 
     address: { type: String, default: "" },
+
+    // ✅ keep safe for old users, but API enforces required
     city: { type: String, default: "" },
 
     profilePic: { type: String, default: "" },

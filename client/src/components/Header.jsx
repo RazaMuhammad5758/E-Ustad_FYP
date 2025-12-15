@@ -16,7 +16,7 @@ export default function Header() {
 
   const avatarSrc = user?.profilePic
     ? `${BASE}/uploads/${user.profilePic}`
-    : "/default-avatar.png";
+    : "/dp.png";
 
   const isOnline = !!user;
 
@@ -26,7 +26,6 @@ export default function Header() {
     nav("/", { replace: true });
   }
 
-  // ✅ close dropdown when clicking outside
   useEffect(() => {
     function onDocClick(e) {
       if (!menuRef.current) return;
@@ -47,12 +46,10 @@ export default function Header() {
   return (
     <header className="bg-white border-b">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Logo */}
         <Link to="/" className="font-bold text-lg">
           E-Ustad
         </Link>
 
-        {/* Nav */}
         <nav className="flex items-center gap-4 text-sm">
           <Link to="/" className="underline">
             Home
@@ -64,7 +61,6 @@ export default function Header() {
 
           {!user ? (
             <>
-              {/* ✅ Offline dot */}
               <div className="flex items-center gap-2 text-gray-600">
                 <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
                 <span className="text-xs">Offline</span>
@@ -83,21 +79,19 @@ export default function Header() {
                 Dashboard
               </Link>
 
-              {/* ✅ Profile dropdown */}
               <div className="relative" ref={menuRef}>
                 <button
                   type="button"
                   onClick={() => setOpen((v) => !v)}
                   className="flex items-center gap-2"
                 >
-                  {/* avatar + status dot */}
                   <div className="relative">
                     <img
                       src={avatarSrc}
                       alt="dp"
                       className="w-8 h-8 rounded-full object-cover border"
                       onError={(e) => {
-                        e.currentTarget.src = "/default-avatar.png";
+                        e.currentTarget.src = "/dp.jpg";
                       }}
                     />
                     <span

@@ -57,7 +57,7 @@ export default function Book() {
 
         {/* ✅ Picture upload */}
         <div className="text-sm space-y-1">
-          <div className="font-semibold">Upload Picture (optional)</div>
+          <div className="font-semibold">Upload Problem Image (optional)</div>
           <input
             type="file"
             accept="image/*"

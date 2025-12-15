@@ -70,7 +70,7 @@ export default function Requests() {
 
               const dp = b.clientId?.profilePic
                 ? `${BASE}/uploads/${b.clientId.profilePic}`
-                : "/default-avatar.png";
+                : "/dp.jpg";
 
               return (
                 <div key={b._id} className="bg-white border rounded-xl p-4 space-y-2">
@@ -81,7 +81,7 @@ export default function Requests() {
                         alt="dp"
                         className="w-10 h-10 rounded-full object-cover border"
                         onError={(e) => {
-                          e.currentTarget.src = "/default-avatar.png";
+                          e.currentTarget.src = "/dp.jpg";
                         }}
                       />
                       <div>

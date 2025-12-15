@@ -28,12 +28,17 @@ export default function ProfessionalDetail() {
         const loadedGigs = gRes.data.gigs || [];
         setGigs(loadedGigs);
 
-        // ✅ load comments (optional)
         try {
-          for (const g of loadedGigs) {
-            const cRes = await api.get(`/gig-comments/${g._id}`);
-            setComments((prev) => ({ ...prev, [g._id]: cRes.data.comments || [] }));
-          }
+          const results = await Promise.all(
+            loadedGigs.map((g) => api.get(`/gig-comments/${g._id}`))
+          );
+
+          const map = {};
+          loadedGigs.forEach((g, idx) => {
+            map[g._id] = results[idx].data.comments || [];
+          });
+
+          setComments(map);
         } catch (e) {
           console.log("comments load failed", e?.response?.status, e?.response?.data);
         }
@@ -71,8 +76,8 @@ export default function ProfessionalDetail() {
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-4xl mx-auto p-6 space-y-4">
         <div className="flex justify-between">
-          <Link to="/dashboard" className="underline">
-            Dashboard
+          <Link to="/" className="underline">
+            Home
           </Link>
         </div>
 
@@ -81,7 +86,6 @@ export default function ProfessionalDetail() {
             <h1 className="text-2xl font-bold">{user?.name}</h1>
             <div className="text-gray-600">{professional?.category || "-"}</div>
 
-            {/* ✅ privacy */}
             <div className="text-sm text-gray-500">
               Phone: <span className="italic">Hidden until booking is accepted</span>
             </div>
@@ -94,7 +98,6 @@ export default function ProfessionalDetail() {
             </div>
           </div>
 
-          {/* GIGS */}
           <div>
             <div className="font-bold">Gigs / Services</div>
 
@@ -106,30 +109,45 @@ export default function ProfessionalDetail() {
                       src={`${BASE}/uploads/${g.image}`}
                       className="w-full h-40 object-cover rounded"
                       alt="gig"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
                     />
                   )}
 
                   <div className="font-semibold">{g.title}</div>
                   <div className="text-sm text-gray-600">Rs. {g.price}</div>
                   <div className="text-sm">{g.description}</div>
+                  
+<div className="text-xs text-gray-500">
+  Comments: {(comments[g._id] || []).length}
+</div>
 
-                  {/* COMMENTS */}
                   <div className="pt-2 space-y-2">
-                    {(comments[g._id] || []).map((c) => (
-                      <div key={c._id} className="flex gap-2 text-sm">
-                        {c.userId?.profilePic && (
+                    {(comments[g._id] || []).map((c) => {
+                      const dp = c.userId?.profilePic
+                        ? `${BASE}/uploads/${c.userId.profilePic}`
+                        : "/dp.jpg";
+
+                      return (
+                        <div key={c._id} className="flex gap-2 text-sm">
+                          {/* ✅ ALWAYS show avatar */}
                           <img
-                            src={`${BASE}/uploads/${c.userId.profilePic}`}
-                            className="w-8 h-8 rounded-full object-cover"
+                            src={dp}
+                            className="w-8 h-8 rounded-full object-cover border"
                             alt="dp"
+                            onError={(e) => {
+                              e.currentTarget.src = "/dp.jpg";
+                            }}
                           />
-                        )}
-                        <div>
-                          <div className="font-semibold">{c.userId?.name}</div>
-                          <div>{c.text}</div>
+
+                          <div>
+                            <div className="font-semibold">{c.userId?.name || "User"}</div>
+                            <div>{c.text}</div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     <div className="flex gap-2">
                       <input

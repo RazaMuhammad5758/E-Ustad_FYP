@@ -13,12 +13,22 @@ export default function Dashboard() {
   // ✅ professional dashboard data (gigs + stats)
   const [proData, setProData] = useState(null);
   const [loadingPro, setLoadingPro] = useState(false);
+  const [commentCounts, setCommentCounts] = useState({});
+
 
   async function loadProfessionalDashboard() {
     try {
       setLoadingPro(true);
       const res = await api.get("/professional/me");
       setProData(res.data);
+      const gigs = res.data?.gigs || [];
+      if (gigs.length) {
+        const ids = gigs.map((g) => g._id).join(",");
+        const cRes = await api.get(`/gig-comments`, { params: { gigIds: ids } });
+        setCommentCounts(cRes.data.counts || {});
+      } else {
+        setCommentCounts({});
+      }
     } catch (e) {
       toast.error(e?.response?.data?.message || "Failed to load dashboard");
     } finally {
@@ -108,6 +118,10 @@ export default function Dashboard() {
                       <div key={g._id} className="border rounded p-3 space-y-2">
                         <div className="font-semibold">{g.title}</div>
                         <div className="text-sm text-gray-600">Rs. {g.price}</div>
+                        <div className="text-xs text-gray-500">
+  Comments: {commentCounts[g._id] ?? 0}
+</div>
+
 
                         {g.image && (
                           <img
