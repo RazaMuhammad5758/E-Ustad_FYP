@@ -714,7 +714,7 @@ export default function Admin() {
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   <div className="text-xs font-semibold text-slate-500">Category</div>
                   <div className="mt-1 font-semibold text-slate-900">
-                    {selected.professional?.category || "—"}
+                    {selected.professional?.category || "Client"}
                   </div>
                 </div>
               </div>

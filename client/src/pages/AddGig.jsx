@@ -102,7 +102,7 @@ export default function AddGig() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600">
-              Price (PKR)
+              Price/hr (PKR)
             </label>
             <input
               type="number"

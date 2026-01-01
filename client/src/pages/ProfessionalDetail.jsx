@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api/axios";
 import toast from "react-hot-toast";
@@ -42,12 +42,23 @@ function Skeleton() {
   );
 }
 
+function starsText(avg = 0) {
+  const a = Number(avg || 0);
+  return `${a.toFixed(1)}★`;
+}
+
 export default function ProfessionalDetail() {
   const { id } = useParams();
 
   const [data, setData] = useState(null);
   const [gigs, setGigs] = useState([]);
-  const [comments, setComments] = useState({});
+
+  // comments state per gig
+  const [comments, setComments] = useState({}); // { gigId: [] }
+  const [commentsOpen, setCommentsOpen] = useState({}); // { gigId: true/false }
+  const [commentsLoaded, setCommentsLoaded] = useState({}); // { gigId: true/false }
+  const [commentsLoading, setCommentsLoading] = useState({}); // { gigId: true/false }
+
   const [texts, setTexts] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -65,20 +76,19 @@ export default function ProfessionalDetail() {
         const loadedGigs = gRes.data.gigs || [];
         setGigs(loadedGigs);
 
-        try {
-          const results = await Promise.all(
-            loadedGigs.map((g) => api.get(`/gig-comments/${g._id}`))
-          );
-
-          const map = {};
-          loadedGigs.forEach((g, idx) => {
-            map[g._id] = results[idx].data.comments || [];
-          });
-
-          setComments(map);
-        } catch (e) {
-          console.log("comments load failed", e?.response?.status, e?.response?.data);
-        }
+        // ✅ IMPORTANT: client side pe comments preload nahi karne
+        // default: closed + not loaded
+        const openMap = {};
+        const loadedMap = {};
+        const loadingMap = {};
+        loadedGigs.forEach((g) => {
+          openMap[g._id] = false;
+          loadedMap[g._id] = false;
+          loadingMap[g._id] = false;
+        });
+        setCommentsOpen(openMap);
+        setCommentsLoaded(loadedMap);
+        setCommentsLoading(loadingMap);
       } catch (e) {
         toast.error(e?.response?.data?.message || "Failed to load profile");
       } finally {
@@ -87,6 +97,34 @@ export default function ProfessionalDetail() {
     })();
   }, [id]);
 
+  async function loadComments(gigId) {
+    // already loading?
+    if (commentsLoading[gigId]) return;
+
+    try {
+      setCommentsLoading((p) => ({ ...p, [gigId]: true }));
+      const cRes = await api.get(`/gig-comments/${gigId}`);
+      setComments((prev) => ({ ...prev, [gigId]: cRes.data.comments || [] }));
+      setCommentsLoaded((p) => ({ ...p, [gigId]: true }));
+    } catch (e) {
+      toast.error("Failed to load comments");
+    } finally {
+      setCommentsLoading((p) => ({ ...p, [gigId]: false }));
+    }
+  }
+
+  async function toggleComments(gigId) {
+    const isOpen = !!commentsOpen[gigId];
+    const nextOpen = !isOpen;
+
+    setCommentsOpen((p) => ({ ...p, [gigId]: nextOpen }));
+
+    // ✅ on opening: lazy load once
+    if (nextOpen && !commentsLoaded[gigId]) {
+      await loadComments(gigId);
+    }
+  }
+
   async function submitComment(gigId) {
     const text = texts[gigId];
     if (!text?.trim()) return toast.error("Write something");
@@ -94,23 +132,25 @@ export default function ProfessionalDetail() {
     try {
       await api.post("/gig-comments", { gigId, text: text.trim() });
       toast.success("Comment added");
-
       setTexts((p) => ({ ...p, [gigId]: "" }));
 
-      const cRes = await api.get(`/gig-comments/${gigId}`);
-      setComments((prev) => ({ ...prev, [gigId]: cRes.data.comments || [] }));
+      // ✅ after adding comment, open comments + refresh
+      setCommentsOpen((p) => ({ ...p, [gigId]: true }));
+      await loadComments(gigId);
     } catch (e) {
       toast.error(e?.response?.data?.message || "Comment failed");
     }
   }
 
   if (loading) return <Skeleton />;
-  if (!data)
+
+  if (!data) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 p-6">
         Not found
       </div>
     );
+  }
 
   const { user, professional } = data;
 
@@ -118,11 +158,12 @@ export default function ProfessionalDetail() {
     ? `${BASE}/uploads/${user.profilePic}`
     : "/dp.jpg";
 
+  const avg = Number(user?.ratingAvg || 0);
+  const count = Number(user?.ratingCount || 0);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto max-w-4xl px-4 py-8 space-y-5">
-       
-
         {/* Profile card */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -147,6 +188,11 @@ export default function ProfessionalDetail() {
                   </span>
                   <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                     Verified
+                  </span>
+
+                  {/* Rating badge */}
+                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                    {starsText(avg)} ({count})
                   </span>
                 </div>
 
@@ -193,92 +239,150 @@ export default function ProfessionalDetail() {
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {gigs.map((g) => (
-              <div
-                key={g._id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                {g.image && (
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                    <div className="aspect-[16/10] w-full">
-                      <img
-                        src={`${BASE}/uploads/${g.image}`}
-                        className="h-full w-full object-cover"
-                        alt="gig"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+            {gigs.map((g) => {
+              const list = comments[g._id] || [];
+              const isOpen = !!commentsOpen[g._id];
+              const isLoaded = !!commentsLoaded[g._id];
+              const isLoading = !!commentsLoading[g._id];
 
-                <div className="mt-4">
-                  <div className="text-base font-extrabold tracking-tight text-slate-900">
-                    {g.title}
-                  </div>
-
-                  <div className="mt-1 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    Rs. {g.price}
-                  </div>
-
-                  <div className="mt-2 text-sm text-slate-600">
-                    {g.description}
-                  </div>
-
-                  <div className="mt-3 text-xs font-semibold text-slate-500">
-                    Comments: {(comments[g._id] || []).length}
-                  </div>
-                </div>
-
-                {/* Comments */}
-                <div className="mt-3 space-y-3">
-                  {(comments[g._id] || []).map((c) => {
-                    const dp = c.userId?.profilePic
-                      ? `${BASE}/uploads/${c.userId.profilePic}`
-                      : "/dp.jpg";
-
-                    return (
-                      <div key={c._id} className="flex gap-2">
+              return (
+                <div
+                  key={g._id}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                >
+                  {g.image && (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      <div className="aspect-[16/10] w-full">
                         <img
-                          src={dp}
-                          className="h-8 w-8 rounded-full object-cover border border-slate-200 bg-slate-50"
-                          alt="dp"
+                          src={`${BASE}/uploads/${g.image}`}
+                          className="h-full w-full object-cover"
+                          alt="gig"
+                          loading="lazy"
                           onError={(e) => {
-                            e.currentTarget.src = "/dp.jpg";
+                            e.currentTarget.style.display = "none";
                           }}
                         />
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-slate-900">
-                            {c.userId?.name || "User"}
-                          </div>
-                          <div className="text-sm text-slate-700">{c.text}</div>
-                        </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
 
-                  {/* Add comment */}
-                  <div className="flex gap-2">
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200"
-                      placeholder="Write comment..."
-                      value={texts[g._id] || ""}
-                      onChange={(e) =>
-                        setTexts((p) => ({ ...p, [g._id]: e.target.value }))
-                      }
-                    />
-                    <button
-                      onClick={() => submitComment(g._id)}
-                      className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                      Send
-                    </button>
+                  <div className="mt-4">
+                    <div className="text-base font-extrabold tracking-tight text-slate-900">
+                      {g.title}
+                    </div>
+
+                    <div className="mt-1 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      Rs. {g.price}
+                    </div>
+
+                    <div className="mt-2 text-sm text-slate-600">
+                      {g.description}
+                    </div>
+
+                    {/* ✅ Comments header row (like professional) */}
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="text-sm font-semibold text-slate-800">
+                        Comments:{" "}
+                        <span className="text-slate-600">
+                          {isLoaded ? list.length : "—"}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleComments(g._id)}
+                        className="text-sm font-semibold text-indigo-700 hover:underline"
+                      >
+                        {isOpen ? "Hide comments" : "View comments"}
+                      </button>
+                    </div>
                   </div>
+
+                  {/* ✅ Comments body (only if open) */}
+                  {isOpen && (
+                    <div className="mt-3 space-y-3">
+                      {isLoading && (
+                        <div className="text-sm text-slate-500">
+                          Loading comments...
+                        </div>
+                      )}
+
+                      {!isLoading && isLoaded && list.length === 0 && (
+                        <div className="text-sm text-slate-500">
+                          No comments yet.
+                        </div>
+                      )}
+
+                      {!isLoading &&
+                        (list || []).map((c) => {
+                          const dp = c.userId?.profilePic
+                            ? `${BASE}/uploads/${c.userId.profilePic}`
+                            : "/dp.jpg";
+
+                          return (
+                            <div key={c._id} className="flex gap-2">
+                              <img
+                                src={dp}
+                                className="h-8 w-8 rounded-full object-cover border border-slate-200 bg-slate-50"
+                                alt="dp"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/dp.jpg";
+                                }}
+                              />
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-slate-900">
+                                  {c.userId?.name || "User"}
+                                </div>
+                                <div className="text-sm text-slate-700">
+                                  {c.text}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                      {/* Add comment (open state) */}
+                      <div className="flex gap-2 pt-1">
+                        <input
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200"
+                          placeholder="Write comment..."
+                          value={texts[g._id] || ""}
+                          onChange={(e) =>
+                            setTexts((p) => ({ ...p, [g._id]: e.target.value }))
+                          }
+                        />
+                        <button
+                          onClick={() => submitComment(g._id)}
+                          className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ✅ If comments are hidden, still allow adding quick comment */}
+                  {!isOpen && (
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-200"
+                        placeholder="Write comment..."
+                        value={texts[g._id] || ""}
+                        onChange={(e) =>
+                          setTexts((p) => ({ ...p, [g._id]: e.target.value }))
+                        }
+                      />
+                      <button
+                        onClick={() => submitComment(g._id)}
+                        className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                      >
+                        Send
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {gigs.length === 0 && (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-slate-600 md:col-span-2">
@@ -292,7 +396,6 @@ export default function ProfessionalDetail() {
             )}
           </div>
 
-          {/* bottom CTA for mobile */}
           <div className="mt-5 sm:hidden">
             <Link
               to={`/book/${user._id}`}

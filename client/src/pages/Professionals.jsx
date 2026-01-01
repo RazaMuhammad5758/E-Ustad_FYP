@@ -27,6 +27,11 @@ function SkeletonCard() {
   );
 }
 
+function starsText(avg = 0) {
+  const a = Number(avg || 0);
+  return `${a.toFixed(1)}★`;
+}
+
 export default function Professionals({ embedded = false }) {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -108,8 +113,6 @@ export default function Professionals({ embedded = false }) {
                 Search by name, city, category
               </p>
             </div>
-
-            
           </div>
         )}
 
@@ -181,12 +184,14 @@ export default function Professionals({ embedded = false }) {
                 const img =
                   p.profilePic ? `${BASE}/uploads/${p.profilePic}` : "/dp.jpg";
 
+                const avg = Number(p.ratingAvg || 0);
+                const count = Number(p.ratingCount || 0);
+
                 return (
                   <div
                     key={p._id}
                     className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
-                    {/* TOP ROW: avatar left, content right */}
                     <div className="flex items-start gap-3">
                       <div className="relative">
                         <img
@@ -198,7 +203,6 @@ export default function Professionals({ embedded = false }) {
                             e.currentTarget.src = "/dp.jpg";
                           }}
                         />
-                        {/* verified dot */}
                         <span
                           className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-white bg-emerald-500"
                           title="Verified"
@@ -218,6 +222,11 @@ export default function Professionals({ embedded = false }) {
                               <span className="text-xs font-medium text-slate-500">
                                 {p.city || "—"}
                               </span>
+
+                              {/* ✅ Rating badge */}
+                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                {starsText(avg)} ({count})
+                              </span>
                             </div>
                           </div>
 
@@ -228,7 +237,6 @@ export default function Professionals({ embedded = false }) {
                       </div>
                     </div>
 
-                    {/* BOTTOM CONTENT */}
                     <p className="mt-3 text-sm text-slate-600 line-clamp-2">
                       {p.professional?.bio ||
                         "View profile for full details, skills, and contact process."}
