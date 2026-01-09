@@ -420,19 +420,26 @@ export default function Register() {
                   </label>
 
                   <label className="space-y-1">
-                    <div className="font-semibold text-slate-900">Fee Screenshot</div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="text-sm"
-                      onChange={(e) =>
-                        setFiles({
-                          ...files,
-                          feeScreenshot: e.target.files?.[0] || null,
-                        })
-                      }
-                    />
-                  </label>
+  <div className="font-semibold text-slate-900">Fee Screenshot</div>
+
+  <p className="text-xs text-slate-600">
+    Easypaisa A/c: <span className="font-medium">03422465758</span><br />
+    Account Name: <span className="font-medium">Raza Muhammad</span>
+  </p>
+
+  <input
+    type="file"
+    accept="image/*"
+    className="text-sm"
+    onChange={(e) =>
+      setFiles({
+        ...files,
+        feeScreenshot: e.target.files?.[0] || null,
+      })
+    }
+  />
+</label>
+
                 </div>
 
                 <div className="mt-2 text-xs text-slate-500">

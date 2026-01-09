@@ -1,6 +1,6 @@
+
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import Professionals from "./Professionals";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import toast from "react-hot-toast";
@@ -29,7 +29,7 @@ function normalizeCommentText(c) {
 
 function normalizeCommentName(c) {
   return (
-    c?.userId?.name ||          // ✅ FIX
+    c?.userId?.name || // ✅ FIX
     c?.user?.name ||
     c?.client?.name ||
     c?.author?.name ||
@@ -41,7 +41,7 @@ function normalizeCommentName(c) {
 
 function normalizeCommentDp(c) {
   const pic =
-    c?.userId?.profilePic ||    // ✅ FIX
+    c?.userId?.profilePic || // ✅ FIX
     c?.user?.profilePic ||
     c?.client?.profilePic ||
     c?.author?.profilePic ||
@@ -93,8 +93,7 @@ function extractComments(respData, gigId) {
 
   const nested = respData.data;
   if (nested && typeof nested === "object") {
-    const nestedArr =
-      nested.comments || nested.items || nested.results || nested.list;
+    const nestedArr = nested.comments || nested.items || nested.results || nested.list;
     if (Array.isArray(nestedArr)) return nestedArr;
 
     const nestedKeyed =
@@ -132,6 +131,29 @@ export default function Dashboard() {
   const [openCommentsFor, setOpenCommentsFor] = useState(null);
   const [commentsByGig, setCommentsByGig] = useState({});
   const [loadingComments, setLoadingComments] = useState({});
+
+  // ✅ CLIENT: completed bookings state
+  const [clientCompleted, setClientCompleted] = useState([]);
+  const [loadingClient, setLoadingClient] = useState(false);
+
+  async function loadClientDashboard() {
+    try {
+      setLoadingClient(true);
+      const res = await api.get("/bookings/client");
+      const all = res.data?.bookings || [];
+
+      // ✅ show ONLY completed bookings on dashboard
+      const completed = all.filter(
+        (b) => b.status === "accepted" && (b.taskStatus || "none") === "completed"
+      );
+
+      setClientCompleted(completed);
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Failed to load completed bookings");
+    } finally {
+      setLoadingClient(false);
+    }
+  }
 
   async function loadProfessionalDashboard() {
     try {
@@ -248,12 +270,15 @@ export default function Dashboard() {
     setOpenCommentsFor(gigId);
     await fetchCommentsForGig(gigId);
   }
+
   const [loading, setLoading] = useState(true);
-async function load() {
+  async function load() {
     window.location.reload();
   }
+
   useEffect(() => {
     if (user?.role === "professional") loadProfessionalDashboard();
+    if (user?.role === "client") loadClientDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
@@ -272,7 +297,7 @@ async function load() {
           <>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-2xl font-extrabold text-slate-900">
-                Available Professionals
+                Completed Bookings
               </h2>
 
               <div className="flex flex-wrap gap-2 text-sm">
@@ -282,10 +307,100 @@ async function load() {
                 >
                   My Booking Requests
                 </Link>
+
+                <button
+                  onClick={loadClientDashboard}
+                  className="inline-flex items-center rounded-full border border-slate-200 bg-white/80 px-4 py-2 font-semibold text-slate-800 shadow-sm transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  ↻ Refresh
+                </button>
               </div>
             </div>
 
-            <Professionals embedded />
+            {loadingClient ? (
+  /* ================= LOADING STATE ================= */
+  <div className="grid justify-center gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    {[...Array(8)].map((_, i) => (
+      <div
+        key={i}
+        className="mx-auto w-full max-w-[340px] animate-pulse rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      >
+        <div className="h-5 w-2/3 rounded bg-slate-200" />
+        <div className="mt-3 h-6 w-28 rounded-full bg-emerald-100" />
+        <div className="mt-4 h-4 w-full rounded bg-slate-200" />
+        <div className="mt-2 h-4 w-5/6 rounded bg-slate-200" />
+      </div>
+    ))}
+  </div>
+) : clientCompleted.length === 0 ? (
+  /* ================= EMPTY STATE ================= */
+  <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+      ✔
+    </div>
+    <h3 className="text-lg font-bold text-slate-900">
+      No completed bookings
+    </h3>
+    <p className="mt-1 max-w-sm text-sm text-slate-600">
+      Once your bookings are completed, they will appear here with full details.
+    </p>
+  </div>
+) : (
+  /* ================= DATA STATE ================= */
+  <div className="grid justify-center gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    {clientCompleted.map((b) => {
+      const proName = b.professionalId?.name || "Professional";
+      const completedAt = b.completedAt
+        ? new Date(b.completedAt).toLocaleString()
+        : "-";
+
+      return (
+        <div
+          key={b._id}
+          className="group relative mx-auto w-full max-w-[340px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+        >
+          {/* thin accent */}
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-emerald-400 to-indigo-500" />
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-extrabold text-slate-900">
+                {proName}
+              </h3>
+              <span className="mt-1 inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                ✔ Task Completed
+              </span>
+            </div>
+
+            <Link
+              to="/my-bookings"
+              className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-600 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50"
+            >
+              View
+            </Link>
+          </div>
+
+          <div className="mt-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between gap-2 text-slate-700">
+              <span className="font-semibold text-slate-900">Completed</span>
+              <span className="truncate">{completedAt}</span>
+            </div>
+
+            <div className="rounded-lg bg-slate-50 p-2 text-slate-700">
+              <span className="block text-[10px] font-semibold text-slate-500">
+                Your Message
+              </span>
+              <p className="mt-0.5 line-clamp-2">
+                {b.message || "—"}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
+
           </>
         )}
 
@@ -293,39 +408,38 @@ async function load() {
         {user?.role === "professional" && (
           <>
             {/* top actions */}
-<div className="mb-6 flex flex-wrap gap-2 rounded-3xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-[2px]">
-  <Link
-    to="/requests"
-    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-  >
-    Requests
-  </Link>
+            <div className="mb-6 flex flex-wrap gap-2 rounded-3xl border border-white/60 bg-white/80 p-4 shadow-sm backdrop-blur-[2px]">
+              <Link
+                to="/requests"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                Requests
+              </Link>
 
-  <Link
-    to="/add-gig"
-    className="rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-2 text-sm font-semibold text-white transition hover:from-indigo-700 hover:to-indigo-800"
-  >
-    + Add Gig
-  </Link>
+              <Link
+                to="/add-gig"
+                className="rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-2 text-sm font-semibold text-white transition hover:from-indigo-700 hover:to-indigo-800"
+              >
+                + Add Gig
+              </Link>
 
-  <Link
-    to="/pro-profile"
-    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-  >
-    Profile
-  </Link>
+              <Link
+                to="/pro-profile"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                Profile
+              </Link>
 
-  {/* right-aligned refresh button */}
-  <div className="ml-auto">
-    <button
-      onClick={load}
-      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-    >
-      <span className="text-base">↻</span> Refresh
-    </button>
-  </div>
-</div>
-
+              {/* right-aligned refresh button */}
+              <div className="ml-auto">
+                <button
+                  onClick={load}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  <span className="text-base">↻</span> Refresh
+                </button>
+              </div>
+            </div>
 
             <div className="space-y-6">
               {loadingPro ? (
@@ -391,55 +505,53 @@ async function load() {
                             className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
                           >
                             {/* top */}
-                            
-<div className="flex items-start justify-between gap-3">
-  {/* left: title + price */}
-  <div className="min-w-0">
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="text-lg font-extrabold text-slate-900 leading-tight line-clamp-1">
-          {g.title}
-        </div>
+                            <div className="flex items-start justify-between gap-3">
+                              {/* left: title + price */}
+                              <div className="min-w-0">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-lg font-extrabold text-slate-900 leading-tight line-clamp-1">
+                                      {g.title}
+                                    </div>
 
-        <div className="mt-2 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
-          Rs. {g.price}
-        </div>
-      </div>
+                                    <div className="mt-2 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
+                                      Rs. {g.price}
+                                    </div>
+                                  </div>
 
-      {/* right: actions */}
-      <div className="flex shrink-0 gap-2">
-        <button
-          onClick={() => nav(`/edit-gig/${g._id}`)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          Edit
-        </button>
+                                  {/* right: actions */}
+                                  <div className="flex shrink-0 gap-2">
+                                    <button
+                                      onClick={() => nav(`/edit-gig/${g._id}`)}
+                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
+                                    >
+                                      Edit
+                                    </button>
 
-        <button
-          onClick={() => deleteGig(g._id)}
-          className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
-        >
-          Delete
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+                                    <button
+                                      onClick={() => deleteGig(g._id)}
+                                      className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
 
-{/* image (always below header; no overlap) */}
-<div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-  <div className="aspect-[16/11] w-full">
-    <img
-      src={img || FALLBACK_GIG}
-      alt="gig"
-      className="h-full w-full object-cover"
-      onError={(e) => {
-        e.currentTarget.src = FALLBACK_GIG;
-      }}
-    />
-  </div>
-</div>
-
+                            {/* image (always below header; no overlap) */}
+                            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                              <div className="aspect-[16/11] w-full">
+                                <img
+                                  src={img || FALLBACK_GIG}
+                                  alt="gig"
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.src = FALLBACK_GIG;
+                                  }}
+                                />
+                              </div>
+                            </div>
 
                             <p className="mt-4 text-slate-600 text-base leading-relaxed line-clamp-2">
                               {g.description?.trim()

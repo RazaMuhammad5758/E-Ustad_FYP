@@ -21,142 +21,147 @@ import AdminLogin from "./pages/AdminLogin";
 import Admin from "./pages/Admin";
 import SetPassword from "./pages/SetPassword";
 
+// ✅ NEW
+import { NotificationProvider } from "./context/NotificationContext";
+
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* ✅ Public (with Header/Footer) */}
-          <Route
-            path="/"
-            element={
-              <MainLayout>
-                <Home />
-              </MainLayout>
-            }
-          />
-
-          <Route
-            path="/login"
-            element={
-              <MainLayout>
-                <Login />
-              </MainLayout>
-            }
-          />
-
-          <Route
-            path="/register"
-            element={
-              <MainLayout>
-                <Register />
-              </MainLayout>
-            }
-          />
-
-          <Route
-            path="/professionals"
-            element={
-              <MainLayout>
-                <Professionals />
-              </MainLayout>
-            }
-          />
-
-          <Route
-            path="/professionals/:id"
-            element={
-              <MainLayout>
-                <ProfessionalDetail />
-              </MainLayout>
-            }
-          />
-
-          {/* ✅ Protected (with Header/Footer) */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
+      <NotificationProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* ✅ Public (with Header/Footer) */}
+            <Route
+              path="/"
+              element={
                 <MainLayout>
-                  <Dashboard />
+                  <Home />
                 </MainLayout>
-              </ProtectedRoute>
-            }
-          />
+              }
+            />
 
-          <Route
-            path="/client-profile"
-            element={
-              <ProtectedRoute>
+            <Route
+              path="/login"
+              element={
                 <MainLayout>
-                  <ClientProfile />
+                  <Login />
                 </MainLayout>
-              </ProtectedRoute>
-            }
-          />
+              }
+            />
 
-          <Route
-            path="/my-bookings"
-            element={
-              <ProtectedRoute>
+            <Route
+              path="/register"
+              element={
                 <MainLayout>
-                  <MyBookings />
+                  <Register />
                 </MainLayout>
-              </ProtectedRoute>
-            }
-          />
+              }
+            />
 
-          <Route
-            path="/requests"
-            element={
-              <ProtectedRoute>
+            <Route
+              path="/professionals"
+              element={
                 <MainLayout>
-                  <Requests />
+                  <Professionals />
                 </MainLayout>
-              </ProtectedRoute>
-            }
-          />
+              }
+            />
 
-          <Route
-            path="/add-gig"
-            element={
-              <ProtectedRoute>
+            <Route
+              path="/professionals/:id"
+              element={
                 <MainLayout>
-                  <AddGig />
+                  <ProfessionalDetail />
                 </MainLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/edit-gig/:id" element={<EditGig />} />
+              }
+            />
 
-          <Route
-            path="/pro-profile"
-            element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProProfile />
-                </MainLayout>
-              </ProtectedRoute>
-            }
-          />
+            {/* ✅ Protected (with Header/Footer) */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Dashboard />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/book/:id"
-            element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Book />
-                </MainLayout>
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/client-profile"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <ClientProfile />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
 
-          {/* ✅ Admin (NO Header/Footer) */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/set-password" element={<SetPassword />} />
-        </Routes>
-      </BrowserRouter>
+            <Route
+              path="/my-bookings"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <MyBookings />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/requests"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Requests />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/add-gig"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <AddGig />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/edit-gig/:id" element={<EditGig />} />
+
+            <Route
+              path="/pro-profile"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <ProProfile />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/book/:id"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Book />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ✅ Admin (NO Header/Footer) */}
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/set-password" element={<SetPassword />} />
+          </Routes>
+        </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
