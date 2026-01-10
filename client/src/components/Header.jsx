@@ -549,57 +549,61 @@ export default function Header() {
 
         {/* Desktop */}
         <nav className="hidden md:flex items-center gap-2">
-          <NavLink to="/">Home</NavLink>
-          <NavLink to="/professionals">Professionals</NavLink>
+  <NavLink to="/">Home</NavLink>
+  <NavLink to="/professionals">Professionals</NavLink>
 
-          {user && (
-            <>
-              <NavLink to="/dashboard">Dashboard</NavLink>
+  {/* Show Login ONLY if user NOT logged in */}
+  {!user && <NavLink to="/login">Login</NavLink>}
 
-              {/* 🔔 Bell */}
-              <div className="relative" ref={notifRef}>
-                <button
-                  onClick={toggleNotifications}
-                  className="relative h-10 w-10 rounded-xl border flex items-center justify-center"
-                >
-                  🔔
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                {notifOpen && NotificationDropdown}
-              </div>
+  {/* Show these ONLY if user IS logged in */}
+  {user && (
+    <>
+      <NavLink to="/dashboard">Dashboard</NavLink>
 
-              {/* Profile */}
-              <div className="relative" ref={menuRef}>
-                <button onClick={() => setOpen(!open)}>
-                  <img
-                    src={avatarSrc}
-                    className="h-9 w-9 rounded-full object-cover"
-                  />
-                </button>
-                {open && (
-                  <div className="absolute right-0 mt-2 bg-white border rounded-xl p-2">
-                    <Link
-                      to={profileLink}
-                      className="block px-3 py-2"
-                    >
-                      Profile
-                    </Link>
-                    <button
-                      onClick={doLogout}
-                      className="block px-3 py-2 text-red-600"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
+      {/* 🔔 Bell */}
+      <div className="relative" ref={notifRef}>
+        <button
+          onClick={toggleNotifications}
+          className="relative h-10 w-10 rounded-xl border flex items-center justify-center"
+        >
+          🔔
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">
+              {unreadCount}
+            </span>
           )}
-        </nav>
+        </button>
+        {notifOpen && NotificationDropdown}
+      </div>
+
+      {/* Profile */}
+      <div className="relative" ref={menuRef}>
+        <button onClick={() => setOpen(!open)}>
+          <img
+            src={avatarSrc}
+            className="h-9 w-9 rounded-full object-cover"
+          />
+        </button>
+
+        {open && (
+          <div className="absolute right-0 mt-2 bg-white border rounded-xl p-2">
+            <Link to={profileLink} className="block px-3 py-2">
+              Profile
+            </Link>
+
+            <button
+              onClick={doLogout}
+              className="block px-3 py-2 text-red-600"
+            >
+              Logout
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  )}
+</nav>
+
 
         {/* Mobile */}
         <button
