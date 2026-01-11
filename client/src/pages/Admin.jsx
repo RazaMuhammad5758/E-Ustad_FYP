@@ -570,11 +570,22 @@ export default function Admin() {
               <tbody>
                 {clients.map((c) => (
                   <tr key={c._id} className="border-t border-slate-200 align-top">
-                    <td className="px-4 py-3 font-semibold text-slate-900">
-                      {c.name}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={imgUrl(c.profilePic)}
+                          onError={onImgError}
+                          className="h-9 w-9 rounded-full object-cover border border-slate-200"
+                          alt="dp"
+                        />
+                        <div className="leading-tight">
+                          <div className="font-semibold text-slate-900">{c.name}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{c.phone || "—"}</td>
                     <td className="px-4 py-3 text-slate-700">{c.email || "—"}</td>
+                    
                     <td className="px-4 py-3 text-slate-700 max-w-[320px]">
                       {c.address?.trim() ? c.address : "—"}
                     </td>

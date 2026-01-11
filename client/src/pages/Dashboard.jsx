@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 
-const BASE = "http://localhost:5000";
+const BASE = "https://localhost:5000";
 const FALLBACK_GIG = "/dp.jpg";
 
 function gigImgUrl(image) {

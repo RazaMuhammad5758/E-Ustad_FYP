@@ -12,13 +12,9 @@ export function AuthProvider({ children }) {
       const res = await api.get("/auth/me");
       setUser(res.data.user || null);
       return res.data.user || null;
-    } catch (err) {
-  if (err?.response?.status === 401) {
-    // ✅ Not logged in / token expired → silently clear user
-    setUser(null);
-    return;
-  }
-  console.error(err);
+    } catch {
+      setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
